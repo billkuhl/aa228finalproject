@@ -11,3 +11,5 @@ orb = KeplerianElements(
                         90     |> deg2rad,
                         19     |> deg2rad
                         )
+
+orbp = Propagators.init(Val(:TwoBody), orb)
