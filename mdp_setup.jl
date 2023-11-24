@@ -4,331 +4,22 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ d642b67f-f954-45f1-8e05-0ff7c6b04722
-using Plots
-
-# ╔═╡ ae3ab439-b0b7-45f9-ae3e-ed6c704c7619
+# ╔═╡ cea0d747-e313-4ff7-9ef6-2624ce0836a6
 using LinearAlgebra
 
-# ╔═╡ dc1b8697-ccf2-4c20-9542-8c33b57656af
+# ╔═╡ e506a676-a017-410e-9f4a-e2e5ceca74f1
 using SatelliteToolbox
 
-# ╔═╡ ceb9c4c4-3100-40c2-a8b0-c1e1a612d994
-using SatelliteToolboxPropagators
+# ╔═╡ 2f499419-618d-4606-b138-6147ffa47211
+using Plots
 
-# ╔═╡ 19762763-acb8-43b5-956a-d05f5cc1d204
-using DataFrames
-
-# ╔═╡ 2d05880b-dbe4-4967-b81e-46902403d48d
-using StatsPlots
-
-# ╔═╡ 450af57c-f82e-4a41-8181-e0d0872d3070
+# ╔═╡ 6961827b-466e-416e-90dd-59c9eb351550
 using Distributions
 
-# ╔═╡ a70fa57b-7cec-44ac-9af3-316334e5bc4c
-#=
+# ╔═╡ 81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
+using StatsPlots
 
-This ended up being a place to understand rewards and orbits. Keep it around to generate visuals and test things.
-
-=#
-
-# ╔═╡ a55e2680-595f-41fa-a3f9-71307f4b5d63
-orb = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        0.001111, # eccentricity
-                        98.405 |> deg2rad, # Inclination
-                        100    |> deg2rad, # Right Angle of Ascending Node
-                        90     |> deg2rad, # Arg. of Perigree
-                        19     |> deg2rad # True Anomaly
-                        )
-
-# ╔═╡ 34416ea5-f3d9-4470-bc3b-7309bc055cd1
-orbp = Propagators.init(Val(:TwoBody), orb)
-
-# ╔═╡ c0f5bb98-eb46-480d-a9e0-0a69b09db1ef
-begin
-println(orbp)
-Propagators.propagate!(orbp,6000)
-
-for i in range(0,1)
-
-pos,vel = (Propagators.step!(orbp,10))
-println(pos)
-end
-
-Propagators.mean_elements(orbp)
-
-end
-
-# ╔═╡ 268c1f16-c7c3-436d-8d43-addfa469ac6a
-Propagators.propagate!(orbp, 6000)
-
-# ╔═╡ 139bb53a-b4cf-4eca-96e3-25982de7dcc2
-
-
-# ╔═╡ 393d77af-c952-4170-a30a-7849004d6d9d
-begin
-
-orb1 = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        0.001111, # eccentricity
-                        0 |> deg2rad, # Inclination
-                        100    |> deg2rad, # Right Angle of Ascending Node
-                        90     |> deg2rad, # Arg. of Perigree
-                        19     |> deg2rad # True Anomaly
-                        )
-
-orb2 = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        .5, # eccentricity
-                        0 |> deg2rad, # Inclination
-                        100    |> deg2rad, # Right Angle of Ascending Node
-                        90     |> deg2rad, # Arg. of Perigree
-                        19     |> deg2rad # True Anomaly
-                        )
-
-orbp1 = Propagators.init(Val(:J4osc), orb1)
-orbp2 = Propagators.init(Val(:J4osc), orb2)
-
-plt3d = plot3d(
-    2,
-    xlim = (-1e7, 1e7),
-    ylim = (-1e7, 1e7),
-    zlim = (-1e7, 1e7),
-    title = "Orbit",
-    legend = false,
-    marker = 2,
-
-)
-
-plt = plot(
-    2,
-    xlim = (-1e7, 1e7),
-    ylim = (-1e7, 1e7),
-    title = "Orbit",
-    legend = false,
-    marker = 2,
-	aspect_ratio=:equal,
-
-)
-
-
-Propagators.propagate!(orbp,0)
-
-global target = []
-global target_vel = []
-
-global intruder = []
-global intruder_vel = []
-
-for t in range(0,1000)
-	
-	pos1,vel1 = Propagators.step!(orbp1,60)
-	pos2,vel2 = Propagators.step!(orbp2,60)
-	push!(plt3d,[pos1[1],pos2[1]],[pos1[2],pos2[2]],[pos1[3],pos2[3]])
-	push!(plt,[pos1[1],pos2[1]],[pos1[2],pos2[2]])
-	global target = cat(dims=1,target,[pos1[1:2]])
-	global intruder = cat(dims=1,intruder,[pos2[1:2]])
-
-	global target_vel = cat(dims=1,target_vel,[vel1])
-	global intruder_vel = cat(dims=1,intruder_vel,[vel2])
-
-	
-end
-
-end
-
-
-# ╔═╡ 255e683d-73d8-4914-982a-f9253effec64
-plot3d(plt)
-
-# ╔═╡ fc2d7d7d-b509-42f2-9a8e-82655f04d8a6
-plot3d(plt3d)
-
-# ╔═╡ 0b836d2f-ef3b-45f0-a8d8-f052cc2236c2
-# ╠═╡ disabled = true
-#=╠═╡
-# This version is WAYY too computationally intensive. Good example of value iteration though
-# does not include transition functions, oh well
-
-begin
-	target_down = target/1e5
-	intruder_down = intruder/1e5
-	hm_orbits = zeros(200,200)
-	for t in target_down
-		hm_orbits[Int(floor(t[1])+100),Int(floor(t[2])+100)] = 100
-	end
-	for i in intruder_down
-		if i[1] > 100 || i[2] > 100
-			0
-		else
-			hm_orbits[Int(floor(i[1])+100),Int(floor(i[2])+100)] = -100
-		end
-	end
-	gamma = .9
-	n = 5
-	for n in (range(1,n))
-		if n%4 == 0
-			x_iter = range(2,199,step=1)
-			y_iter = range(2,199,step=1)
-		elseif n%4 == 1
-			x_iter = range(199,2,step=-1)
-			y_iter = range(2,199,step=1)
-		elseif n%4 == 2
-			x_iter = range(199,2,step=-1)
-			y_iter = range(199,2,step=-1)
-		elseif n%4 == 3
-			x_iter = range(2,199,step=1)
-			y_iter = range(199,2,step=-1)
-		end
-		for (x) in x_iter
-			for y in y_iter
-				new_max = gamma*maximum([maximum((hm_orbits[x+k,y+j]) for k in [-1,0,1]) for j in [-1,0,1]])
-				new_min = gamma*minimum([minimum((hm_orbits[x+k,y+j]) for k in [-1,0,1]) for j in [-1,0,1]])
-				
-				if abs(new_min)>=abs(new_max)
-					if hm_orbits[x,y] > new_min
-						hm_orbits[x,y] = new_min
-					end
-				else
-					if hm_orbits[x,y]<new_max
-						hm_orbits[x,y] = new_max
-					end
-				end
-			end
-		end
-	end
-	println(maximum(hm_orbits))
-	heatmap(hm_orbits)
-end
-  ╠═╡ =#
-
-# ╔═╡ 7ed77d88-3cc6-491c-b2b3-8ea4fa53a11a
-
-
-# ╔═╡ 9582520e-0abc-4452-8c3e-d039bdca6ad8
-begin
-	mvnorm = MvNormal([0,0],[100 0;0 100])
-	prox_gauss = [pdf(mvnorm,[i,j]) for i in -50:50, j in -50:50]
-	plot(-50:50,-50:50,prox_gauss,st=:surface,aspect_ratio=:equal)
-end
-
-# ╔═╡ c4ffa3a3-a66d-4ef4-b624-c6a0bcb6c75d
-begin
-target2 = (target/1e5) # reduces distances to km values so we can fit it in a matrix
-hm_size = 200
-hm = zeros(Int(hm_size),Int(hm_size))
-print(size(hm))
-for idx in target2
-	x_ind = Int(round(idx[1])+hm_size//2)
-	y_ind = Int(round(idx[2])+hm_size//2)
-	
-	xstart = x_ind - 25
-	ystart = y_ind - 25
-	xstop = x_ind+24
-	ystop = y_ind+24
-
-	gaussx_start = 25
-	gaussx_stop = 74
-	gaussy_start = 25
-	gaussy_stop = 74
-	
-	if xstart < 1
-		diff = 1-xstart
-		gaussx_start = gaussx_start+diff
-		xstart = 1
-	end
-	if xstop > hm_size
-		diff = hm_size - xstop
-		gaussx_stop = gaussx_stop+diff
-		xstop = hm_size
-	end
-	if ystart < 1
-		diff = 1-ystart
-		gaussy_start = gaussy_start+diff
-		ystart = 1
-	end
-	if ystop > hm_size
-		diff = hm_size - ystop
-		gaussy_stop = gaussy_stop+diff
-		ystop = hm_size
-	end
-
-	hm_curr = hm[xstart:xstop,ystart:ystop]
-	hm[xstart:xstop,ystart:ystop] = max.(hm_curr,prox_gauss[gaussx_start:gaussx_stop,gaussy_start:gaussy_stop])
-	
-	
-	
-end
-
-end
-
-# ╔═╡ 61680eb5-efdc-49ae-bc52-78272feadfb3
-reward_plt = plot(-99:100,-99:100,hm,st=:surface,aspect_ratio=:equal)
-
-# ╔═╡ 2d05e93a-006d-43d1-b851-4c6475f5cab0
-# Here I'm using to try and make a gif of an intruder going around causing negative reward
-begin
-	collision_reward = -2*prox_gauss
-	intruder2 = intruder/1e5
-	@gif for idx in intruder2
-		x_ind = Int(round(idx[1]+hm_size/2))
-		y_ind = Int(round(idx[2]+hm_size/2))
-		
-		hm_curr = copy(hm)
-		
-		xstart = x_ind - 25
-		ystart = y_ind - 25
-		xstop = x_ind+24
-		ystop = y_ind+24
-	
-		gaussx_start = 25
-		gaussx_stop = 74
-		gaussy_start = 25
-		gaussy_stop = 74
-		
-		if xstart < 1
-			diff = 1-xstart
-			gaussx_start = gaussx_start+diff
-			xstart = 1
-		end
-		if xstop > hm_size
-			diff = hm_size - xstop
-			gaussx_stop = gaussx_stop+diff
-			xstop = hm_size
-		end
-		if ystart < 1
-			diff = 1-ystart
-			gaussy_start = gaussy_start+diff
-			ystart = 1
-		end
-		if ystop > hm_size
-			diff = hm_size - ystop
-			gaussy_stop = gaussy_stop+diff
-			ystop = hm_size
-		end
-	
-		hm_sub = hm_curr[xstart:xstop,ystart:ystop]
-		cr = collision_reward[gaussx_start:gaussx_stop,gaussy_start:gaussy_stop]
-		hm_curr[xstart:xstop,ystart:ystop] = hm_sub + cr
-		plot(-99:100,-99:100,hm_curr,st=:surface,aspect_ratio=:equal)
-		
-	end
-		
-		
-	
-end
-
-# ╔═╡ 54b4671e-a4d5-4d4c-9183-a86ff004dfd5
-try
-sqrt(-1)
-catch
-end
-
-# ╔═╡ 57259db3-a19e-489d-b87d-d7d9e14b7aac
+# ╔═╡ b7244310-8975-11ee-0624-71a4629478ea
 #=
 All right, lets try and set up the POMDP
 
@@ -340,7 +31,7 @@ A = 11 tanjential deltaV's - 5 positive and 5 negative. Need to determine these 
 
 T = Lets say it does what we want with P = .98, P=.01 we go one step faster and P=.01 we go one step slower. Can model as a gaussian later.
 
-R = Instant Reward -> how much do we like the state we are currently in. We can write this as a function of the distance from the nearest point on the orbit ellipse and the distance to any known intruders. Will also include term to see how fast we are
+R = Instant Reward -> how much do we like the state we are currently in. We can write this as a function of the distance from the nearest point on the orbit ellipse and the distance to any known intruders. Not including velocity for now, will probably have to iniclude a velocity term later.
 
 S will not be a matrix, the state space is too big. Its also fairly simple to compute given A. Will be a Sattelite Toolbox orbital probogator type (I'm just using the two-body system for now.)
 
@@ -360,26 +51,220 @@ Things to do:
 5. Build Decision tree for decision state based on hungry baby problem (is there or is there not a collision ahead.) [is this really nescessary?]
 =#
 
-# ╔═╡ 7f185f6a-c6e2-4f9b-b9b2-f6e3a3c64f10
-plot([sqrt(vec[1]^2+vec[2]^2+vec[3]^2) for vec in intruder_vel])
+# ╔═╡ 32d2bcea-439d-402d-b902-ac8b248928d9
+function visualize_orbits(orbps,t0,dt,tend)
+	n_sats = length(orbps)
+	
+	plt3d = plot3d(
+    n_sats,
+    xlim = (-1e7, 1e7),
+    ylim = (-1e7, 1e7),
+    zlim = (-1e7, 1e7),
+    title = "Orbit",
+    legend = false,
+    marker = 2,
+	)
+	
+	plt = plot(
+	    n_sats,
+	    xlim = (-1e7, 1e7),
+	    ylim = (-1e7, 1e7),
+	    title = "Orbit",
+	    legend = false,
+	    marker = 2,
+		aspect_ratio=:equal,
+	)
+
+	for t in range(t0,tend,step=dt)
+		new_pos = zeros(3,length(orbps))
+		for idx in range(1,length(orbps))
+			pos,vel = Propagators.propagate!(orbps[idx],t)
+			new_pos[:,idx] = pos
+		end
+		push!(plt3d,new_pos[1,:],new_pos[2,:],new_pos[3,:])
+		push!(plt,new_pos[1,:],new_pos[2,:])
+	end
+	
+
+	return plt3d, plt
+end
+
+# ╔═╡ 0762117a-ba6c-42ab-8f8e-bf43de77c35e
+function get_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,t)
+	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
+	return Propagators.propagate!(orbp,t)
+end
+
+# ╔═╡ 5f664a70-44a9-4f00-b0d6-25db91ab4f41
+function next_state(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,a::Int,t0::Int,dt::Int)
+
+	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
+	
+	pos, vel = get_S(orbp,t0)
+	if (a in range(-5,5,step=1)) == false
+		throw(DomainError(a,"This is not a valid action. Actions must be in the set [-5,5]."))
+	end
+	
+	unit_dV = 200 #m/s^2
+	dV_mag = unit_dV*a
+	u_vel = vel/norm(vel)
+
+	new_vel = vel + dV_mag*u_vel
+	new_kep = rv_to_kepler(pos, new_vel,t0)
+	new_orbp = Propagators.init(Val(:J4osc,), new_kep)
+	return Propagators.step!(new_orbp,dt)
+	
+end 
+
+# ╔═╡ b781ffb6-7c96-4823-a517-2536d7be9d71
+function dist2desired(orbp, desired::Float64, t)
+	# when I decide to make this usable for elliptical orbits will need to change desired
+	pos, vel = Propagators.propagate!(orbp,t)
+	sat_rad = norm(pos)
+
+	#will return a positive value if outside of the orbit and a negative value if inside of the orbit. Maybe a better way to design this is using keplerian elements? like differential in eccentricity, RAAN, Perigree, anomaly, etc. Can use a covariance matrix to define these
+	return sat_rad - desired
+end
+
+# ╔═╡ 7d143ada-33bd-4c08-9855-3daee2b14348
+function dists2intruders(orbp, intruder_vec, t)
+	tgt_pos, tgt_vel = get_S(orbp, t)
+	intruder_dists = []
+	for i_intruder in intruder_vec
+		int_pos,int_vel = get_S(i_intruder, t)
+		int_dist = norm(int_pos-tgt_pos)
+		intruder_dists = vcat(intruder_dists,int_dist)
+	end
+	return intruder_dists
+end
+
+# ╔═╡ 5cc9f735-1906-4dc4-8272-2fc952bb578b
+function get_R(target_orbp, intruder_orbps, desired_orbit_r, t)
+	pos,vel = get_S(target_orbp,t)
+	intuder_weight = 2
+	desired_orbit_weight = 1
+	danger_radius = 1000 #m - defines the radius from our target satellite where we start reducing 
+	intruder_dists = dists2intruders(target_orbp,intruder_orbps,t)
+	dist_from_desired = dist2desired(target_orbp,desired_orbit_r,t)
+	penalty(dist,desired_dist) = 1e-6*(desired_dist-dist)^3
+	max_penalty = maximum([penalty(d,danger_radius) for d in intruder_dists])
+	if max_penalty < 0
+		max_penalty = 0
+	else max_penalty > 0
+		print("t ")
+		print(t)
+		print(" max penalty")
+		println(max_penalty)
+	end
+	return minimum([abs(i) for i in intruder_dists])
+end
+
+# ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
+target_orb_elements = KeplerianElements(
+                        date_to_jd(2023,01,01), # Epoch
+                        7190.982e3, # Semi-Major Axis
+                        0.00, # eccentricity - Set to 0 for percfect circle in the ideal case
+                        0 |> deg2rad, # Inclination - Set to 0 for 2D simplification
+                        100    |> deg2rad, # Right Angle of Ascending Node
+                        90     |> deg2rad, # Arg. of Perigree
+                        19     |> deg2rad # True Anomaly
+                        )
+
+# ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
+target = Propagators.init(Val(:J4osc),target_orb_elements)
+
+# ╔═╡ f785613d-fd21-4d5e-b466-eb9e06725347
+next_state(target,-5,6000,10)
+
+# ╔═╡ c30235c3-3dc8-4478-b555-3e865dc99f96
+test_pos,test_vel = Propagators.propagate!(target,100)
+
+# ╔═╡ 572834bd-4158-426e-8112-200fa1bc1771
+begin
+	intruders = []
+	for ecc in range(0,.9,length=3)
+		for raan in range(0,2*pi,length=10)
+			for argp in range(0,2*pi,length=10)
+				new_intruder_elements = KeplerianElements(
+				                        date_to_jd(2023,01,01), # Epoch
+				                        7190.982e3, # Semi-Major Axis
+				                        ecc, # eccentricity
+				                        0 |> deg2rad, # Inclination - Set to 0 for 2D simplification
+				                        raan, # Right Angle of Ascending Node
+				                        argp, # Arg. of Perigree
+				                        19     |> deg2rad # True Anomaly
+				)
+				new_intruder_orb = Propagators.init(Val(:J4osc), new_intruder_elements)
+
+				intruders = cat(dims=1,intruders,new_intruder_orb)
+			end
+		end
+	end
+end
+
+# ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
+# Example of get_s at a specific time
+ex_pos, ex_vec = get_S(target,6000)
+
+# ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
+get_S(target,6000)
+
+# ╔═╡ a2f38244-567e-4981-8696-ea660093087d
+begin
+
+r = minimum([get_R(target, intruders, 7190.982e3, t) for t in range(0,10000,step=10)])
+
+end
+
+# ╔═╡ f5f7c263-81e3-4cc7-8d3d-7856fa410985
+# ╠═╡ disabled = true
+#=╠═╡
+begin
+dist_plt = plot(3)
+push!(dist_plt,[[1,2],[2,3],[3,4]],[[10,20],[20,30],[30,40]])
+dist_plt
+end
+  ╠═╡ =#
+
+# ╔═╡ f0ac903d-6b26-4649-852a-01aecb61b76d
+# ╠═╡ disabled = true
+#=╠═╡
+visualize_orbits(intruders,0,60,6000)
+  ╠═╡ =#
+
+# ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
+#=
+
+A good way to plot reward function could be a plot with dists from our desired orbit and dists from dangerous satellites. That way it would be easy to see when we should move and what our system ends up doing. We can do a hard-coded switch to a domain when we actually want to move.
+
+Next thing to do here: 
+
+Make a function to go from pos, vel in ECI to keplerian elements so that we can take an action and then propogate from the new orbit. That is really the next big step
+
+=#
+
+# ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
+# Pick a point for each of the observers.
+
+# ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
+rv_to_kepler(test_pos,test_vel+[.01,.01,.01])
+
+# ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 SatelliteToolbox = "6ac157d9-b43d-51bb-8fab-48bf53814f4a"
-SatelliteToolboxPropagators = "c2b69894-ea78-4e2b-9ba6-cedbbc3d14d7"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-DataFrames = "~1.6.1"
 Distributions = "~0.25.103"
 Plots = "~1.39.0"
 SatelliteToolbox = "~0.12.0"
-SatelliteToolboxPropagators = "~0.3.0"
 StatsPlots = "~0.15.6"
 """
 
@@ -389,7 +274,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "c69e337e9031d640052f04a353309451a4087b0f"
+project_hash = "52f2b89b8c7007ae80a830f95435fce81eb61d64"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -591,12 +476,6 @@ git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.15.0"
 
-[[deps.DataFrames]]
-deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
-uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.6.1"
-
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
 git-tree-sha1 = "3dbd312d370723b6bb43ba9d02fc36abade4518d"
@@ -752,10 +631,6 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
-[[deps.Future]]
-deps = ["Random"]
-uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
-
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
@@ -815,12 +690,6 @@ git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.23"
 
-[[deps.InlineStrings]]
-deps = ["Parsers"]
-git-tree-sha1 = "9cc2baf75c6d09f9da536ddf58eb2f29dedaf461"
-uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.4.0"
-
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
@@ -842,11 +711,6 @@ deps = ["Test"]
 git-tree-sha1 = "68772f49f54b479fa88ace904f6127f0a3bb2e46"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
 version = "0.1.12"
-
-[[deps.InvertedIndices]]
-git-tree-sha1 = "0dc7b50b8d436461be01300fd8cd45aa0274b038"
-uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
-version = "1.3.0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -1232,12 +1096,6 @@ git-tree-sha1 = "5f807b5345093487f733e520a1b7395ee9324825"
 uuid = "3a141323-8675-5d76-9d11-e1df1406c778"
 version = "1.0.0"
 
-[[deps.PooledArrays]]
-deps = ["DataAPI", "Future"]
-git-tree-sha1 = "36d8b4b899628fb92c2749eb488d884a926614d3"
-uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
-version = "1.4.3"
-
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
 git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
@@ -1249,12 +1107,6 @@ deps = ["TOML"]
 git-tree-sha1 = "00805cd429dcb4870060ff49ef443486c262e38e"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.4.1"
-
-[[deps.PrettyTables]]
-deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "3f43c2aae6aa4a2503b05587ab74f4f6aeff9fd0"
-uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.3.0"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -1513,12 +1365,6 @@ deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interp
 git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
-
-[[deps.StringManipulation]]
-deps = ["PrecompileTools"]
-git-tree-sha1 = "a04cabe79c5f01f4d723cc6704070ada0b9d46d5"
-uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
-version = "0.3.4"
 
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
@@ -1920,30 +1766,31 @@ version = "1.4.1+1"
 """
 
 # ╔═╡ Cell order:
-# ╠═d642b67f-f954-45f1-8e05-0ff7c6b04722
-# ╠═ae3ab439-b0b7-45f9-ae3e-ed6c704c7619
-# ╠═dc1b8697-ccf2-4c20-9542-8c33b57656af
-# ╠═ceb9c4c4-3100-40c2-a8b0-c1e1a612d994
-# ╠═19762763-acb8-43b5-956a-d05f5cc1d204
-# ╠═2d05880b-dbe4-4967-b81e-46902403d48d
-# ╠═450af57c-f82e-4a41-8181-e0d0872d3070
-# ╠═a70fa57b-7cec-44ac-9af3-316334e5bc4c
-# ╠═a55e2680-595f-41fa-a3f9-71307f4b5d63
-# ╠═34416ea5-f3d9-4470-bc3b-7309bc055cd1
-# ╠═c0f5bb98-eb46-480d-a9e0-0a69b09db1ef
-# ╠═268c1f16-c7c3-436d-8d43-addfa469ac6a
-# ╠═139bb53a-b4cf-4eca-96e3-25982de7dcc2
-# ╠═393d77af-c952-4170-a30a-7849004d6d9d
-# ╠═255e683d-73d8-4914-982a-f9253effec64
-# ╠═fc2d7d7d-b509-42f2-9a8e-82655f04d8a6
-# ╠═0b836d2f-ef3b-45f0-a8d8-f052cc2236c2
-# ╠═7ed77d88-3cc6-491c-b2b3-8ea4fa53a11a
-# ╠═9582520e-0abc-4452-8c3e-d039bdca6ad8
-# ╠═c4ffa3a3-a66d-4ef4-b624-c6a0bcb6c75d
-# ╠═61680eb5-efdc-49ae-bc52-78272feadfb3
-# ╠═2d05e93a-006d-43d1-b851-4c6475f5cab0
-# ╠═54b4671e-a4d5-4d4c-9183-a86ff004dfd5
-# ╠═57259db3-a19e-489d-b87d-d7d9e14b7aac
-# ╠═7f185f6a-c6e2-4f9b-b9b2-f6e3a3c64f10
+# ╠═cea0d747-e313-4ff7-9ef6-2624ce0836a6
+# ╠═e506a676-a017-410e-9f4a-e2e5ceca74f1
+# ╠═2f499419-618d-4606-b138-6147ffa47211
+# ╠═6961827b-466e-416e-90dd-59c9eb351550
+# ╠═81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
+# ╠═b7244310-8975-11ee-0624-71a4629478ea
+# ╠═32d2bcea-439d-402d-b902-ac8b248928d9
+# ╠═0762117a-ba6c-42ab-8f8e-bf43de77c35e
+# ╠═5cc9f735-1906-4dc4-8272-2fc952bb578b
+# ╠═5f664a70-44a9-4f00-b0d6-25db91ab4f41
+# ╠═f785613d-fd21-4d5e-b466-eb9e06725347
+# ╠═b781ffb6-7c96-4823-a517-2536d7be9d71
+# ╠═7d143ada-33bd-4c08-9855-3daee2b14348
+# ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
+# ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
+# ╠═c30235c3-3dc8-4478-b555-3e865dc99f96
+# ╠═572834bd-4158-426e-8112-200fa1bc1771
+# ╠═6e83a341-ff00-4a9f-b7f7-b8bb705e5150
+# ╠═55ef0977-f3ef-41af-8b6f-22ed738eb462
+# ╠═a2f38244-567e-4981-8696-ea660093087d
+# ╠═f5f7c263-81e3-4cc7-8d3d-7856fa410985
+# ╠═f0ac903d-6b26-4649-852a-01aecb61b76d
+# ╠═6b12952d-d728-4cbf-905d-e782fba70162
+# ╠═2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
+# ╠═f0817ff9-95d6-46e2-845d-d4dd6b115acd
+# ╠═2300bf2b-160c-4376-b930-e1b3d5f4adea
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
