@@ -19,6 +19,12 @@ using Distributions
 # ╔═╡ 81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
 using StatsPlots
 
+# ╔═╡ c35e823b-50f0-4b29-9c5c-1f3084c7bab9
+import QuickPOMDPs: QuickPOMDP
+
+# ╔═╡ 6ab92168-edb2-4915-8e37-485c5d77eb4e
+import POMDPTools: ImplicitDistribution
+
 # ╔═╡ b7244310-8975-11ee-0624-71a4629478ea
 #=
 All right, lets try and set up the POMDP
@@ -91,16 +97,41 @@ end
 
 # ╔═╡ 0762117a-ba6c-42ab-8f8e-bf43de77c35e
 function get_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,t)
+	# Turns propogators into state at a particular point.
 	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
-	return Propagators.propagate!(orbp,t)
+	return [ Propagators.propagate!(orbp,t), t ]
+end
+
+# ╔═╡ 210075d5-dca3-4246-b1ff-9785173682d8
+# ╠═╡ disabled = true
+#=╠═╡
+function get_action_R(a)
+end
+  ╠═╡ =#
+
+# ╔═╡ 4136c7c6-5dfa-4098-8871-efe596c46f2d
+# ╠═╡ disabled = true
+#=╠═╡
+function get_R(s,a,s')
+	
+end
+  ╠═╡ =#
+
+# ╔═╡ 82af5a29-f689-450a-8002-7e2ea35dc453
+function gen_orbp(state)
+	# state = [[x],[v],t]
+	kep = rv_to_kepler(state[1],state[2],state[3])
+	prop = Propagators.propagate(Val(:J4osc),kep)
+	
 end
 
 # ╔═╡ 5f664a70-44a9-4f00-b0d6-25db91ab4f41
-function next_state(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,a::Int,t0::Int,dt::Int)
+function next_state(state, a::Int, dt::Int)
 
 	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
 	
-	pos, vel = get_S(orbp,t0)
+	pos, vel, t0 = state
+	
 	if (a in range(-5,5,step=1)) == false
 		throw(DomainError(a,"This is not a valid action. Actions must be in the set [-5,5]."))
 	end
@@ -117,9 +148,9 @@ function next_state(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculatin
 end 
 
 # ╔═╡ b781ffb6-7c96-4823-a517-2536d7be9d71
-function dist2desired(orbp, desired::Float64, t)
+function dist2desired(state, desired::Float64)
 	# when I decide to make this usable for elliptical orbits will need to change desired
-	pos, vel = Propagators.propagate!(orbp,t)
+	pos, vel, t = state
 	sat_rad = norm(pos)
 
 	#will return a positive value if outside of the orbit and a negative value if inside of the orbit. Maybe a better way to design this is using keplerian elements? like differential in eccentricity, RAAN, Perigree, anomaly, etc. Can use a covariance matrix to define these
@@ -127,19 +158,20 @@ function dist2desired(orbp, desired::Float64, t)
 end
 
 # ╔═╡ 7d143ada-33bd-4c08-9855-3daee2b14348
-function dists2intruders(orbp, intruder_vec, t)
-	tgt_pos, tgt_vel = get_S(orbp, t)
+function dists2intruders(state, intruder_states::Array)
 	intruder_dists = []
 	for i_intruder in intruder_vec
-		int_pos,int_vel = get_S(i_intruder, t)
-		int_dist = norm(int_pos-tgt_pos)
+		int_dist = norm(state[1]-i_intruder[1])
 		intruder_dists = vcat(intruder_dists,int_dist)
 	end
 	return intruder_dists
 end
 
 # ╔═╡ 5cc9f735-1906-4dc4-8272-2fc952bb578b
-function get_R(target_orbp, intruder_orbps, desired_orbit_r, t)
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+function get_R_oldpropbased(target_orbp, intruder_orbps, desired_orbit_r, t)
 	pos,vel = get_S(target_orbp,t)
 	intuder_weight = 2
 	desired_orbit_weight = 1
@@ -158,6 +190,29 @@ function get_R(target_orbp, intruder_orbps, desired_orbit_r, t)
 	end
 	return minimum([abs(i) for i in intruder_dists])
 end
+  ╠═╡ =#
+
+# ╔═╡ 97776ac4-c379-4630-83ef-fd606b0d8d63
+function get_state_R(target_state, intruder_states, desired_orbit_radius)
+
+	# Calculate the State Reward
+	intuder_weight = 2
+	desired_orbit_weight = 1
+	danger_radius = 1000 #m - defines the radius from our target satellite where we start reducing 
+	intruder_dists = dists2intruders(target_state,intruder_states)
+	dist_from_desired = dist2desired(target_state,desired_orbit_radius)
+	penalty(dist,desired_dist) = 1e-6*(desired_dist-dist)^3
+	max_penalty = maximum([penalty(d,danger_radius) for d in intruder_dists])
+	if max_penalty < 0
+		max_penalty = 0
+	elseif max_penalty > 0
+		print("t ")
+		print(t)
+		print(" max penalty")
+		println(max_penalty)
+	end
+	return minimum([abs(i) for i in intruder_dists])
+end
 
 # ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
 target_orb_elements = KeplerianElements(
@@ -168,16 +223,19 @@ target_orb_elements = KeplerianElements(
                         100    |> deg2rad, # Right Angle of Ascending Node
                         90     |> deg2rad, # Arg. of Perigree
                         19     |> deg2rad # True Anomaly
-                        )
+)
 
 # ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
-target = Propagators.init(Val(:J4osc),target_orb_elements)
+target_prop = Propagators.init(Val(:J4osc),target_orb_elements)
+
+# ╔═╡ 50bc6ea8-e87a-4f4d-bdc3-1683e325da78
+target = get_S(target_prop,0)
 
 # ╔═╡ f785613d-fd21-4d5e-b466-eb9e06725347
 next_state(target,-5,6000,10)
 
 # ╔═╡ c30235c3-3dc8-4478-b555-3e865dc99f96
-test_pos,test_vel = Propagators.propagate!(target,100)
+test_pos,test_vel = Propagators.propagate!(target_prop,100)
 
 # ╔═╡ 572834bd-4158-426e-8112-200fa1bc1771
 begin
@@ -196,35 +254,28 @@ begin
 				)
 				new_intruder_orb = Propagators.init(Val(:J4osc), new_intruder_elements)
 
-				intruders = cat(dims=1,intruders,new_intruder_orb)
+				intruders = cat(dims=1,intruders,[get_S(new_intruder_orb,0)])
 			end
 		end
 	end
 end
 
+# ╔═╡ 1926e94d-2847-4813-835d-29179460d291
+get_state_R(target,intruders, 7190.982e3)
+
 # ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
 # Example of get_s at a specific time
-ex_pos, ex_vec = get_S(target,6000)
+ex_pos, ex_vec = get_S(target_prop,6000)
 
 # ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
-get_S(target,6000)
+get_S(target_prop,6000)
 
 # ╔═╡ a2f38244-567e-4981-8696-ea660093087d
-begin
+# begin - Re-Write this eventually to cycle through 
 
-r = minimum([get_R(target, intruders, 7190.982e3, t) for t in range(0,10000,step=10)])
+# r = minimum([get_R(target, intruders, 7190.982e3) for t in range(0,10000,step=10)])
 
-end
-
-# ╔═╡ f5f7c263-81e3-4cc7-8d3d-7856fa410985
-# ╠═╡ disabled = true
-#=╠═╡
-begin
-dist_plt = plot(3)
-push!(dist_plt,[[1,2],[2,3],[3,4]],[[10,20],[20,30],[30,40]])
-dist_plt
-end
-  ╠═╡ =#
+# end
 
 # ╔═╡ f0ac903d-6b26-4649-852a-01aecb61b76d
 # ╠═╡ disabled = true
@@ -247,23 +298,62 @@ Make a function to go from pos, vel in ECI to keplerian elements so that we can 
 # Pick a point for each of the observers.
 
 # ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
-rv_to_kepler(test_pos,test_vel+[.01,.01,.01])
+rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
 
 # ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
+sat_system = QuickPOMDP(
+	
+	actions = range(-5,5,step=1),
+    obstype = Array,
+    discount = 0.95,
 
+    transition = function (s, a, sp)        
+        ImplicitDistribution() do rng
+            x, v, t  = s
+
+			xp,vp,t=[0,0,0]
+            
+            return (xp, vp, t)
+        end
+    end,
+
+    observation = (a, sp) -> Normal(sp[1], 0.15),
+
+    reward = function (s, a, sp)
+        if sp[1] > 0.5
+            return 100.0
+        else
+            return -1.0
+        end
+    end,
+
+    initialstate = ImplicitDistribution(rng -> (-0.2*rand(rng), 0.0)),
+    isterminal = s -> s[1] > 0.5
+	
+)
+
+# ╔═╡ 710a55a1-6368-4421-af9a-bc7a324b8960
+d = MvNormal([0,0],Diagonal([1,1]))
+
+# ╔═╡ 8a0a5705-70c8-464e-aeec-8de24c2d4424
+pdf(d,[0,0])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+QuickPOMDPs = "8af83fb2-a731-493c-9049-9e19dbce6165"
 SatelliteToolbox = "6ac157d9-b43d-51bb-8fab-48bf53814f4a"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 Distributions = "~0.25.103"
+POMDPTools = "~0.1.6"
 Plots = "~1.39.0"
+QuickPOMDPs = "~0.2.14"
 SatelliteToolbox = "~0.12.0"
 StatsPlots = "~0.15.6"
 """
@@ -274,7 +364,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "52f2b89b8c7007ae80a830f95435fce81eb61d64"
+project_hash = "f6c3fd3d27c9b9af4a8033e84fd390ac80d24a95"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -319,6 +409,12 @@ weakdeps = ["StaticArrays"]
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
+
+[[deps.ArnoldiMethod]]
+deps = ["LinearAlgebra", "Random", "StaticArrays"]
+git-tree-sha1 = "62e51b39331de8911e4a7ff6f5aaf38a5f4cc0ae"
+uuid = "ec485272-7323-5ecc-a04f-4719b315124d"
+version = "0.2.0"
 
 [[deps.Arpack]]
 deps = ["Arpack_jll", "Libdl", "LinearAlgebra", "Logging"]
@@ -417,6 +513,12 @@ git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
 
+[[deps.CommonRLInterface]]
+deps = ["Tricks"]
+git-tree-sha1 = "6c7d1ebb157fdf0f696698ef01946fe93c9efff4"
+uuid = "d842c3ba-07a1-494f-bbec-f5741b0a3e98"
+version = "0.3.3"
+
 [[deps.Compat]]
 deps = ["UUIDs"]
 git-tree-sha1 = "8a62af3e248a8c4bad6b32cbbe663ae02275e32c"
@@ -475,6 +577,12 @@ version = "4.1.1"
 git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.15.0"
+
+[[deps.DataFrames]]
+deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
+git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
+uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+version = "1.6.1"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -631,6 +739,10 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
+[[deps.Future]]
+deps = ["Random"]
+uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
+
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
@@ -667,6 +779,12 @@ git-tree-sha1 = "344bf40dcab1073aca04aa0df4fb092f920e4011"
 uuid = "3b182d85-2403-5c21-9c21-1e1f0cc25472"
 version = "1.3.14+0"
 
+[[deps.Graphs]]
+deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
+git-tree-sha1 = "899050ace26649433ef1af25bc17a815b3db52b7"
+uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
+version = "1.9.0"
+
 [[deps.Grisu]]
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
@@ -690,6 +808,17 @@ git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.23"
 
+[[deps.Inflate]]
+git-tree-sha1 = "ea8031dea4aff6bd41f1df8f2fdfb25b33626381"
+uuid = "d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9"
+version = "0.1.4"
+
+[[deps.InlineStrings]]
+deps = ["Parsers"]
+git-tree-sha1 = "9cc2baf75c6d09f9da536ddf58eb2f29dedaf461"
+uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
+version = "1.4.0"
+
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
@@ -711,6 +840,11 @@ deps = ["Test"]
 git-tree-sha1 = "68772f49f54b479fa88ace904f6127f0a3bb2e46"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
 version = "0.1.12"
+
+[[deps.InvertedIndices]]
+git-tree-sha1 = "0dc7b50b8d436461be01300fd8cd45aa0274b038"
+uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
+version = "1.3.0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -910,6 +1044,12 @@ git-tree-sha1 = "9ee1618cbf5240e6d4e0371d6f24065083f60c48"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.11"
 
+[[deps.MarchingCubes]]
+deps = ["PrecompileTools", "StaticArrays"]
+git-tree-sha1 = "c8e29e2bacb98c9b6f10445227a8b0402f2f173a"
+uuid = "299715c1-40a9-479a-aaf9-4a633d36f717"
+version = "0.1.8"
+
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
@@ -954,6 +1094,11 @@ deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
+
+[[deps.NamedTupleTools]]
+git-tree-sha1 = "90914795fc59df44120fe3fff6742bb0d7adb1d0"
+uuid = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
+version = "0.14.3"
 
 [[deps.NearestNeighbors]]
 deps = ["Distances", "StaticArrays"]
@@ -1037,6 +1182,30 @@ git-tree-sha1 = "f6f85a2edb9c356b829934ad3caed2ad0ebbfc99"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.11.29"
 
+[[deps.POMDPLinter]]
+deps = ["Logging"]
+git-tree-sha1 = "cee5817d06f5e1a9054f3e1bbb50cbabae4cd5a5"
+uuid = "f3bd98c0-eb40-45e2-9eb1-f2763262d755"
+version = "0.1.1"
+
+[[deps.POMDPTools]]
+deps = ["CommonRLInterface", "DataFrames", "Distributed", "Distributions", "LinearAlgebra", "NamedTupleTools", "POMDPLinter", "POMDPs", "Parameters", "ProgressMeter", "Random", "Reexport", "SparseArrays", "Statistics", "StatsBase", "Tricks", "UnicodePlots"]
+git-tree-sha1 = "6b7e405f2c1905aff6f07ee4d241fd608d289d66"
+uuid = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
+version = "0.1.6"
+
+[[deps.POMDPs]]
+deps = ["Distributions", "Graphs", "NamedTupleTools", "POMDPLinter", "Pkg", "Random", "Statistics"]
+git-tree-sha1 = "9a6fe01a75a23cfb8a4d7af43f95ff3db16694f1"
+uuid = "a93abf59-7444-517b-a68a-c42f96afdd7d"
+version = "0.9.6"
+
+[[deps.Parameters]]
+deps = ["OrderedCollections", "UnPack"]
+git-tree-sha1 = "34c0e9ad262e5f7fc75b10a9952ca7692cfc5fbe"
+uuid = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+version = "0.12.3"
+
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
 git-tree-sha1 = "a935806434c9d4c506ba941871b327b96d41f2bf"
@@ -1096,6 +1265,12 @@ git-tree-sha1 = "5f807b5345093487f733e520a1b7395ee9324825"
 uuid = "3a141323-8675-5d76-9d11-e1df1406c778"
 version = "1.0.0"
 
+[[deps.PooledArrays]]
+deps = ["DataAPI", "Future"]
+git-tree-sha1 = "36d8b4b899628fb92c2749eb488d884a926614d3"
+uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
+version = "1.4.3"
+
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
 git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
@@ -1108,9 +1283,21 @@ git-tree-sha1 = "00805cd429dcb4870060ff49ef443486c262e38e"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.4.1"
 
+[[deps.PrettyTables]]
+deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "Reexport", "StringManipulation", "Tables"]
+git-tree-sha1 = "3f43c2aae6aa4a2503b05587ab74f4f6aeff9fd0"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "2.3.0"
+
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.ProgressMeter]]
+deps = ["Distributed", "Printf"]
+git-tree-sha1 = "00099623ffee15972c16111bcf84c58a0051257c"
+uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
+version = "1.9.0"
 
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Vulkan_Loader_jll", "Xorg_libSM_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_cursor_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "libinput_jll", "xkbcommon_jll"]
@@ -1123,6 +1310,12 @@ deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "9ebcd48c498668c7fa0e97a9cae873fbee7bfee1"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.9.1"
+
+[[deps.QuickPOMDPs]]
+deps = ["NamedTupleTools", "POMDPTools", "POMDPs", "Random", "Tricks", "UUIDs"]
+git-tree-sha1 = "5a198408a330c4bff6e085831e542f75f4e5e38f"
+uuid = "8af83fb2-a731-493c-9049-9e19dbce6165"
+version = "0.2.14"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1288,6 +1481,12 @@ git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
 version = "1.1.0"
 
+[[deps.SimpleTraits]]
+deps = ["InteractiveUtils", "MacroTools"]
+git-tree-sha1 = "5d7e3f4e11935503d3ecaf7186eac40602e7d231"
+uuid = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
+version = "0.9.4"
+
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
@@ -1366,6 +1565,12 @@ git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
 
+[[deps.StringManipulation]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "a04cabe79c5f01f4d723cc6704070ada0b9d46d5"
+uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
+version = "0.3.4"
+
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
@@ -1422,6 +1627,11 @@ weakdeps = ["Random", "Test"]
     [deps.TranscodingStreams.extensions]
     TestExt = ["Test", "Random"]
 
+[[deps.Tricks]]
+git-tree-sha1 = "eae1bb484cd63b36999ee58be2de6c178105112f"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.8"
+
 [[deps.URIs]]
 git-tree-sha1 = "67db6cc7b3821e19ebe75791a9dd19c9b1188f2b"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
@@ -1431,6 +1641,11 @@ version = "1.5.1"
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
+[[deps.UnPack]]
+git-tree-sha1 = "387c1f73762231e86e0c9c5443ce3b4a0a9a0c2b"
+uuid = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
+version = "1.0.2"
+
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
@@ -1439,6 +1654,27 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
+
+[[deps.UnicodePlots]]
+deps = ["ColorSchemes", "ColorTypes", "Contour", "Crayons", "Dates", "LinearAlgebra", "MarchingCubes", "NaNMath", "PrecompileTools", "Printf", "Requires", "SparseArrays", "StaticArrays", "StatsBase"]
+git-tree-sha1 = "b96de03092fe4b18ac7e4786bee55578d4b75ae8"
+uuid = "b8865327-cd53-5732-bb35-84acbb429228"
+version = "3.6.0"
+
+    [deps.UnicodePlots.extensions]
+    FreeTypeExt = ["FileIO", "FreeType"]
+    ImageInTerminalExt = "ImageInTerminal"
+    IntervalSetsExt = "IntervalSets"
+    TermExt = "Term"
+    UnitfulExt = "Unitful"
+
+    [deps.UnicodePlots.weakdeps]
+    FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+    FreeType = "b38be410-82b0-50bf-ab77-7b57e271db43"
+    ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
+    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
+    Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
+    Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
@@ -1771,26 +2007,35 @@ version = "1.4.1+1"
 # ╠═2f499419-618d-4606-b138-6147ffa47211
 # ╠═6961827b-466e-416e-90dd-59c9eb351550
 # ╠═81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
+# ╠═c35e823b-50f0-4b29-9c5c-1f3084c7bab9
+# ╠═6ab92168-edb2-4915-8e37-485c5d77eb4e
 # ╠═b7244310-8975-11ee-0624-71a4629478ea
 # ╠═32d2bcea-439d-402d-b902-ac8b248928d9
 # ╠═0762117a-ba6c-42ab-8f8e-bf43de77c35e
 # ╠═5cc9f735-1906-4dc4-8272-2fc952bb578b
+# ╠═97776ac4-c379-4630-83ef-fd606b0d8d63
+# ╠═1926e94d-2847-4813-835d-29179460d291
+# ╠═210075d5-dca3-4246-b1ff-9785173682d8
+# ╠═4136c7c6-5dfa-4098-8871-efe596c46f2d
+# ╠═82af5a29-f689-450a-8002-7e2ea35dc453
 # ╠═5f664a70-44a9-4f00-b0d6-25db91ab4f41
 # ╠═f785613d-fd21-4d5e-b466-eb9e06725347
 # ╠═b781ffb6-7c96-4823-a517-2536d7be9d71
 # ╠═7d143ada-33bd-4c08-9855-3daee2b14348
 # ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
 # ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
+# ╠═50bc6ea8-e87a-4f4d-bdc3-1683e325da78
 # ╠═c30235c3-3dc8-4478-b555-3e865dc99f96
 # ╠═572834bd-4158-426e-8112-200fa1bc1771
 # ╠═6e83a341-ff00-4a9f-b7f7-b8bb705e5150
 # ╠═55ef0977-f3ef-41af-8b6f-22ed738eb462
 # ╠═a2f38244-567e-4981-8696-ea660093087d
-# ╠═f5f7c263-81e3-4cc7-8d3d-7856fa410985
 # ╠═f0ac903d-6b26-4649-852a-01aecb61b76d
 # ╠═6b12952d-d728-4cbf-905d-e782fba70162
 # ╠═2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
 # ╠═f0817ff9-95d6-46e2-845d-d4dd6b115acd
 # ╠═2300bf2b-160c-4376-b930-e1b3d5f4adea
+# ╠═710a55a1-6368-4421-af9a-bc7a324b8960
+# ╠═8a0a5705-70c8-464e-aeec-8de24c2d4424
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
