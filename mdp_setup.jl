@@ -99,26 +99,19 @@ end
 function get_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,t)
 	# Turns propogators into state at a particular point.
 	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
-	return [ Propagators.propagate!(orbp,t), t ]
+	x, v  = Propagators.propagate!(orbp,t)
+	return x, v, t
 end
 
 # ╔═╡ 210075d5-dca3-4246-b1ff-9785173682d8
-# ╠═╡ disabled = true
-#=╠═╡
-function get_action_R(a)
+function get_action_R(a::Float64)
+	# Adjust this for scale later
+	return -abs(100*a)
 end
-  ╠═╡ =#
-
-# ╔═╡ 4136c7c6-5dfa-4098-8871-efe596c46f2d
-# ╠═╡ disabled = true
-#=╠═╡
-function get_R(s,a,s')
-	
-end
-  ╠═╡ =#
 
 # ╔═╡ 82af5a29-f689-450a-8002-7e2ea35dc453
 function gen_orbp(state)
+	
 	# state = [[x],[v],t]
 	kep = rv_to_kepler(state[1],state[2],state[3])
 	prop = Propagators.propagate(Val(:J4osc),kep)
@@ -129,7 +122,7 @@ end
 function next_state(state, a::Int, dt::Int)
 
 	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
-	
+	print(state)
 	pos, vel, t0 = state
 	
 	if (a in range(-5,5,step=1)) == false
@@ -157,85 +150,58 @@ function dist2desired(state, desired::Float64)
 	return sat_rad - desired
 end
 
+# ╔═╡ 97776ac4-c379-4630-83ef-fd606b0d8d63
+function get_state_R(target_state, desired_orbit_radius)
+	
+	# Calculate the State Reward
+	zero_radius = 1000 #m - further away from target path than this, we get 0 reward
+	dist_from_desired = dist2desired(target_state,desired_orbit_radius)
+	reward(dist) = 1e-6*(abs(dist)-zero_radius)^3 
+	
+	if abs(dist_from_desired) > zero_radius
+		return 0
+	else
+		return reward(dist_from_desired)
+	end
+	
+end
+
 # ╔═╡ 7d143ada-33bd-4c08-9855-3daee2b14348
 function dists2intruders(state, intruder_states::Array)
 	intruder_dists = []
-	for i_intruder in intruder_vec
+	for i_intruder in intruder_states
 		int_dist = norm(state[1]-i_intruder[1])
 		intruder_dists = vcat(intruder_dists,int_dist)
 	end
 	return intruder_dists
 end
 
-# ╔═╡ 5cc9f735-1906-4dc4-8272-2fc952bb578b
-# ╠═╡ disabled = true
-# ╠═╡ skip_as_script = true
-#=╠═╡
-function get_R_oldpropbased(target_orbp, intruder_orbps, desired_orbit_r, t)
-	pos,vel = get_S(target_orbp,t)
-	intuder_weight = 2
-	desired_orbit_weight = 1
-	danger_radius = 1000 #m - defines the radius from our target satellite where we start reducing 
-	intruder_dists = dists2intruders(target_orbp,intruder_orbps,t)
-	dist_from_desired = dist2desired(target_orbp,desired_orbit_r,t)
-	penalty(dist,desired_dist) = 1e-6*(desired_dist-dist)^3
-	max_penalty = maximum([penalty(d,danger_radius) for d in intruder_dists])
-	if max_penalty < 0
-		max_penalty = 0
-	else max_penalty > 0
-		print("t ")
-		print(t)
-		print(" max penalty")
-		println(max_penalty)
-	end
-	return minimum([abs(i) for i in intruder_dists])
-end
-  ╠═╡ =#
-
-# ╔═╡ 97776ac4-c379-4630-83ef-fd606b0d8d63
-function get_state_R(target_state, intruder_states, desired_orbit_radius)
-
-	# Calculate the State Reward
-	intuder_weight = 2
-	desired_orbit_weight = 1
-	danger_radius = 1000 #m - defines the radius from our target satellite where we start reducing 
+# ╔═╡ 54f8e264-9596-4374-8644-ec10997bbdf3
+function get_collision_R(target_state, intruder_states)
 	intruder_dists = dists2intruders(target_state,intruder_states)
-	dist_from_desired = dist2desired(target_state,desired_orbit_radius)
-	penalty(dist,desired_dist) = 1e-6*(desired_dist-dist)^3
-	max_penalty = maximum([penalty(d,danger_radius) for d in intruder_dists])
+	penalty(dist) = 1e-6*(abs(dist))^3 # Not sure if I actually need the abs in this.
+	max_penalty = maximum([penalty(d) for d in intruder_dists])
+	
 	if max_penalty < 0
 		max_penalty = 0
-	elseif max_penalty > 0
-		print("t ")
-		print(t)
-		print(" max penalty")
-		println(max_penalty)
 	end
-	return minimum([abs(i) for i in intruder_dists])
+	return -max_penalty
 end
 
-# ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
-target_orb_elements = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        0.00, # eccentricity - Set to 0 for percfect circle in the ideal case
-                        0 |> deg2rad, # Inclination - Set to 0 for 2D simplification
-                        100    |> deg2rad, # Right Angle of Ascending Node
-                        90     |> deg2rad, # Arg. of Perigree
-                        19     |> deg2rad # True Anomaly
-)
-
-# ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
-target_prop = Propagators.init(Val(:J4osc),target_orb_elements)
-
-# ╔═╡ 50bc6ea8-e87a-4f4d-bdc3-1683e325da78
-target = get_S(target_prop,0)
-
-# ╔═╡ f785613d-fd21-4d5e-b466-eb9e06725347
-next_state(target,-5,6000,10)
-
-# ╔═╡ c30235c3-3dc8-4478-b555-3e865dc99f96
-test_pos,test_vel = Propagators.propagate!(target_prop,100)
+# ╔═╡ 4136c7c6-5dfa-4098-8871-efe596c46f2d
+function get_R(s, a, sp, env)
+	
+	intruder_list_orbp, desired_orbit = env #Env is a list of these two things.
+	intruder_states = [get_S(intruder_orbp,s[3]) for intruder_orbp in intruder_list_orbp]
+	
+	intuder_weight = 2
+	desired_orbit_weight = 1
+	
+	orbit_reward = get_state_R(s, desired_orbit #=rn just a distance=# ) 
+	collision_penalty = get_collision_R(s, intruder_states)
+	action_penalty = get_action_R(a)
+	
+end
 
 # ╔═╡ 572834bd-4158-426e-8112-200fa1bc1771
 begin
@@ -260,29 +226,6 @@ begin
 	end
 end
 
-# ╔═╡ 1926e94d-2847-4813-835d-29179460d291
-get_state_R(target,intruders, 7190.982e3)
-
-# ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
-# Example of get_s at a specific time
-ex_pos, ex_vec = get_S(target_prop,6000)
-
-# ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
-get_S(target_prop,6000)
-
-# ╔═╡ a2f38244-567e-4981-8696-ea660093087d
-# begin - Re-Write this eventually to cycle through 
-
-# r = minimum([get_R(target, intruders, 7190.982e3) for t in range(0,10000,step=10)])
-
-# end
-
-# ╔═╡ f0ac903d-6b26-4649-852a-01aecb61b76d
-# ╠═╡ disabled = true
-#=╠═╡
-visualize_orbits(intruders,0,60,6000)
-  ╠═╡ =#
-
 # ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
 #=
 
@@ -297,8 +240,37 @@ Make a function to go from pos, vel in ECI to keplerian elements so that we can 
 # ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
 # Pick a point for each of the observers.
 
+# ╔═╡ cc58fd40-1c9e-43d6-9b66-f0cda583a21b
+
+
+# ╔═╡ 8150a9ff-7054-4c2b-a37e-e08ba42bf39b
+
+
+# ╔═╡ 382fc570-d800-40d7-a005-97985b8b2e58
+
+
+# ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
+target_orb_elements = KeplerianElements(
+                        date_to_jd(2023,01,01), # Epoch
+                        7190.982e3, # Semi-Major Axis
+                        0.00, # eccentricity - Set to 0 for percfect circle in the ideal case
+                        0 |> deg2rad, # Inclination - Set to 0 for 2D simplification
+                        100    |> deg2rad, # Right Angle of Ascending Node
+                        90     |> deg2rad, # Arg. of Perigree
+                        19     |> deg2rad # True Anomaly
+)
+
+# ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
+target_prop = Propagators.init(Val(:J4osc),target_orb_elements)
+
+# ╔═╡ c30235c3-3dc8-4478-b555-3e865dc99f96
+test_pos,test_vel = Propagators.propagate!(target_prop,100)
+
 # ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
 rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
+
+# ╔═╡ 50bc6ea8-e87a-4f4d-bdc3-1683e325da78
+target = get_S(target_prop,0)
 
 # ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
 sat_system = QuickPOMDP(
@@ -337,6 +309,20 @@ d = MvNormal([0,0],Diagonal([1,1]))
 
 # ╔═╡ 8a0a5705-70c8-464e-aeec-8de24c2d4424
 pdf(d,[0,0])
+
+# ╔═╡ f4a71200-5187-494a-875b-aaab2700ddd6
+#=
+
+Thoughts on making this more computationally simple. When doing lookaheads, take VERY large steps. Check if any of the intruder satellites have passed over the arc that the satellite travels during this time. If possible, find the time and max distance (penalty?) at that time, if not that then reduce step sizes until we find the probable crossover point.
+
+=#
+
+# ╔═╡ 8ece40e9-4b77-4083-88a0-083b5dccaf28
+#= 
+
+If we get one to work, we can try and extend this to multiple satellites and make a new reward function to account for amount of the earth covered.
+
+=#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2012,30 +1998,29 @@ version = "1.4.1+1"
 # ╠═b7244310-8975-11ee-0624-71a4629478ea
 # ╠═32d2bcea-439d-402d-b902-ac8b248928d9
 # ╠═0762117a-ba6c-42ab-8f8e-bf43de77c35e
-# ╠═5cc9f735-1906-4dc4-8272-2fc952bb578b
 # ╠═97776ac4-c379-4630-83ef-fd606b0d8d63
-# ╠═1926e94d-2847-4813-835d-29179460d291
+# ╠═54f8e264-9596-4374-8644-ec10997bbdf3
 # ╠═210075d5-dca3-4246-b1ff-9785173682d8
 # ╠═4136c7c6-5dfa-4098-8871-efe596c46f2d
 # ╠═82af5a29-f689-450a-8002-7e2ea35dc453
 # ╠═5f664a70-44a9-4f00-b0d6-25db91ab4f41
-# ╠═f785613d-fd21-4d5e-b466-eb9e06725347
 # ╠═b781ffb6-7c96-4823-a517-2536d7be9d71
 # ╠═7d143ada-33bd-4c08-9855-3daee2b14348
-# ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
-# ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
-# ╠═50bc6ea8-e87a-4f4d-bdc3-1683e325da78
 # ╠═c30235c3-3dc8-4478-b555-3e865dc99f96
 # ╠═572834bd-4158-426e-8112-200fa1bc1771
-# ╠═6e83a341-ff00-4a9f-b7f7-b8bb705e5150
-# ╠═55ef0977-f3ef-41af-8b6f-22ed738eb462
-# ╠═a2f38244-567e-4981-8696-ea660093087d
-# ╠═f0ac903d-6b26-4649-852a-01aecb61b76d
 # ╠═6b12952d-d728-4cbf-905d-e782fba70162
 # ╠═2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
 # ╠═f0817ff9-95d6-46e2-845d-d4dd6b115acd
+# ╠═cc58fd40-1c9e-43d6-9b66-f0cda583a21b
+# ╠═8150a9ff-7054-4c2b-a37e-e08ba42bf39b
+# ╠═382fc570-d800-40d7-a005-97985b8b2e58
+# ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
+# ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
+# ╠═50bc6ea8-e87a-4f4d-bdc3-1683e325da78
 # ╠═2300bf2b-160c-4376-b930-e1b3d5f4adea
 # ╠═710a55a1-6368-4421-af9a-bc7a324b8960
 # ╠═8a0a5705-70c8-464e-aeec-8de24c2d4424
+# ╠═f4a71200-5187-494a-875b-aaab2700ddd6
+# ╠═8ece40e9-4b77-4083-88a0-083b5dccaf28
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
