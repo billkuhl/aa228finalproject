@@ -22,8 +22,11 @@ using StatsPlots
 # ╔═╡ c35e823b-50f0-4b29-9c5c-1f3084c7bab9
 import QuickPOMDPs: QuickPOMDP
 
+# ╔═╡ 662b6918-c3ca-446a-9a38-273c76904cc9
+using Random
+
 # ╔═╡ 6ab92168-edb2-4915-8e37-485c5d77eb4e
-import POMDPTools: ImplicitDistribution
+import POMDPTools: ImplicitDistribution, Deterministic
 
 # ╔═╡ b7244310-8975-11ee-0624-71a4629478ea
 #=
@@ -119,24 +122,24 @@ function gen_orbp(state)
 end
 
 # ╔═╡ 5f664a70-44a9-4f00-b0d6-25db91ab4f41
-function next_state(state, a::Int, dt::Int)
+function next_state(state, a, dt::Int)
 
 	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
 	print(state)
 	pos, vel, t0 = state
 	
-	if (a in range(-5,5,step=1)) == false
-		throw(DomainError(a,"This is not a valid action. Actions must be in the set [-5,5]."))
-	end
 	
-	unit_dV = 200 #m/s^2
+	unit_dV = 200.0 #m/s^2
 	dV_mag = unit_dV*a
 	u_vel = vel/norm(vel)
 
 	new_vel = vel + dV_mag*u_vel
+	
 	new_kep = rv_to_kepler(pos, new_vel,t0)
+	
 	new_orbp = Propagators.init(Val(:J4osc,), new_kep)
-	return Propagators.step!(new_orbp,dt)
+	
+	return get_S(new_orbp, t0 + dt)
 	
 end 
 
@@ -226,28 +229,15 @@ begin
 	end
 end
 
-# ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
+# ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
+# Pick a point for each of the observers. -> System not organized with observers, once I get a system set up to run simply, this is good. 
+
+# ╔═╡ 7ae14eb0-a536-4321-95a9-c6fc3ccd7252
 #=
 
-A good way to plot reward function could be a plot with dists from our desired orbit and dists from dangerous satellites. That way it would be easy to see when we should move and what our system ends up doing. We can do a hard-coded switch to a domain when we actually want to move.
-
-Next thing to do here: 
-
-Make a function to go from pos, vel in ECI to keplerian elements so that we can take an action and then propogate from the new orbit. That is really the next big step
+Initialize the MDP - Generate Initial Points, and forced collisions with intruders
 
 =#
-
-# ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
-# Pick a point for each of the observers.
-
-# ╔═╡ cc58fd40-1c9e-43d6-9b66-f0cda583a21b
-
-
-# ╔═╡ 8150a9ff-7054-4c2b-a37e-e08ba42bf39b
-
-
-# ╔═╡ 382fc570-d800-40d7-a005-97985b8b2e58
-
 
 # ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
 target_orb_elements = KeplerianElements(
@@ -261,16 +251,32 @@ target_orb_elements = KeplerianElements(
 )
 
 # ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
-target_prop = Propagators.init(Val(:J4osc),target_orb_elements)
-
-# ╔═╡ c30235c3-3dc8-4478-b555-3e865dc99f96
-test_pos,test_vel = Propagators.propagate!(target_prop,100)
-
-# ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
-rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
+init_prop = Propagators.init(Val(:J4osc),target_orb_elements)
 
 # ╔═╡ 50bc6ea8-e87a-4f4d-bdc3-1683e325da78
-target = get_S(target_prop,0)
+init_state = get_S(init_prop,0)
+
+# ╔═╡ d55f827c-7793-420f-8497-d4178db43e35
+begin
+	dangerous_times = [100, 1000, 2000, 5000, 10000]
+	intruder_orbps = []
+	Random.seed!(1234)
+	x_noise = 500*rand(MvNormal([0,0],Diagonal([1,1])))
+	v_noise = 250*rand(MvNormal([0,0],Diagonal([1,1])))
+	for t in dangerous_times
+		s_t = get_S(init_prop,t)
+		x = s_t[1]
+		v = s_t[2]
+		x1 = x[1] + x_noise[1]
+		x2 = x[2] + x_noise[2]
+		v1 = v[1] + v_noise[1]
+		v2 = v[2] + v_noise[2]
+		n_orbp = Propagators.init(Val(:J4osc),rv_to_kepler([x1,x2,0], [v1,v2,0], s_t[3]))
+		intruder_orbps = vcat(intruder_orbps,n_orbp)
+	end
+	plt3d, plt = visualize_orbits(intruder_orbps,0,10,15000)
+	plt
+end
 
 # ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
 sat_system = QuickPOMDP(
@@ -279,36 +285,43 @@ sat_system = QuickPOMDP(
     obstype = Array,
     discount = 0.95,
 
-    transition = function (s, a, sp)        
+    transition = function (s, a)        
         ImplicitDistribution() do rng
-            x, v, t  = s
-
-			xp,vp,t=[0,0,0]
+			
+            dt = 10
+			
+			a_noise = Normal(a,.1)
+			xp, vp, tp = next_state(s, a_noise, dt)
             
-            return (xp, vp, t)
+            return [xp, vp, t]
         end
     end,
 
-    observation = (a, sp) -> Normal(sp[1], 0.15),
+    observation = (a, sp) -> Deterministic(sp) #= IDK how to fill this in correctly =#,
 
     reward = function (s, a, sp)
-        if sp[1] > 0.5
-            return 100.0
-        else
-            return -1.0
-        end
+        return get_R(s,a,sp,[intruder_orbps,7190.98e3])
     end,
 
-    initialstate = ImplicitDistribution(rng -> (-0.2*rand(rng), 0.0)),
-    isterminal = s -> s[1] > 0.5
+    initialstate = Deterministic(init_state),
+    isterminal = s -> s[3] < 11000
 	
 )
+
+# ╔═╡ a7df68d7-57b0-43cf-a825-3fae0e2e6462
+test_vel_err = Normal(-5,.01)
+
+# ╔═╡ 13e33a26-f86c-4169-8319-3df5f9f3da23
+rand(test_vel_err)
 
 # ╔═╡ 710a55a1-6368-4421-af9a-bc7a324b8960
 d = MvNormal([0,0],Diagonal([1,1]))
 
 # ╔═╡ 8a0a5705-70c8-464e-aeec-8de24c2d4424
 pdf(d,[0,0])
+
+# ╔═╡ 72db24b7-7572-4c95-b386-ab098dd8a533
+rand(d)
 
 # ╔═╡ f4a71200-5187-494a-875b-aaab2700ddd6
 #=
@@ -332,6 +345,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 QuickPOMDPs = "8af83fb2-a731-493c-9049-9e19dbce6165"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SatelliteToolbox = "6ac157d9-b43d-51bb-8fab-48bf53814f4a"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
@@ -350,7 +364,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "f6c3fd3d27c9b9af4a8033e84fd390ac80d24a95"
+project_hash = "31ec1cbb20b8e39956de5c2666362d6eb7993cb2"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1995,6 +2009,7 @@ version = "1.4.1+1"
 # ╠═81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
 # ╠═c35e823b-50f0-4b29-9c5c-1f3084c7bab9
 # ╠═6ab92168-edb2-4915-8e37-485c5d77eb4e
+# ╠═662b6918-c3ca-446a-9a38-273c76904cc9
 # ╠═b7244310-8975-11ee-0624-71a4629478ea
 # ╠═32d2bcea-439d-402d-b902-ac8b248928d9
 # ╠═0762117a-ba6c-42ab-8f8e-bf43de77c35e
@@ -2006,20 +2021,19 @@ version = "1.4.1+1"
 # ╠═5f664a70-44a9-4f00-b0d6-25db91ab4f41
 # ╠═b781ffb6-7c96-4823-a517-2536d7be9d71
 # ╠═7d143ada-33bd-4c08-9855-3daee2b14348
-# ╠═c30235c3-3dc8-4478-b555-3e865dc99f96
 # ╠═572834bd-4158-426e-8112-200fa1bc1771
-# ╠═6b12952d-d728-4cbf-905d-e782fba70162
 # ╠═2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
-# ╠═f0817ff9-95d6-46e2-845d-d4dd6b115acd
-# ╠═cc58fd40-1c9e-43d6-9b66-f0cda583a21b
-# ╠═8150a9ff-7054-4c2b-a37e-e08ba42bf39b
-# ╠═382fc570-d800-40d7-a005-97985b8b2e58
+# ╠═7ae14eb0-a536-4321-95a9-c6fc3ccd7252
 # ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
 # ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
 # ╠═50bc6ea8-e87a-4f4d-bdc3-1683e325da78
+# ╠═d55f827c-7793-420f-8497-d4178db43e35
 # ╠═2300bf2b-160c-4376-b930-e1b3d5f4adea
+# ╠═a7df68d7-57b0-43cf-a825-3fae0e2e6462
+# ╠═13e33a26-f86c-4169-8319-3df5f9f3da23
 # ╠═710a55a1-6368-4421-af9a-bc7a324b8960
 # ╠═8a0a5705-70c8-464e-aeec-8de24c2d4424
+# ╠═72db24b7-7572-4c95-b386-ab098dd8a533
 # ╠═f4a71200-5187-494a-875b-aaab2700ddd6
 # ╠═8ece40e9-4b77-4083-88a0-083b5dccaf28
 # ╟─00000000-0000-0000-0000-000000000001
