@@ -148,64 +148,6 @@ plot3d(plt)
 # ╔═╡ fc2d7d7d-b509-42f2-9a8e-82655f04d8a6
 plot3d(plt3d)
 
-# ╔═╡ 0b836d2f-ef3b-45f0-a8d8-f052cc2236c2
-# ╠═╡ disabled = true
-#=╠═╡
-# This version is WAYY too computationally intensive. Good example of value iteration though
-# does not include transition functions, oh well
-
-begin
-	target_down = target/1e5
-	intruder_down = intruder/1e5
-	hm_orbits = zeros(200,200)
-	for t in target_down
-		hm_orbits[Int(floor(t[1])+100),Int(floor(t[2])+100)] = 100
-	end
-	for i in intruder_down
-		if i[1] > 100 || i[2] > 100
-			0
-		else
-			hm_orbits[Int(floor(i[1])+100),Int(floor(i[2])+100)] = -100
-		end
-	end
-	gamma = .9
-	n = 5
-	for n in (range(1,n))
-		if n%4 == 0
-			x_iter = range(2,199,step=1)
-			y_iter = range(2,199,step=1)
-		elseif n%4 == 1
-			x_iter = range(199,2,step=-1)
-			y_iter = range(2,199,step=1)
-		elseif n%4 == 2
-			x_iter = range(199,2,step=-1)
-			y_iter = range(199,2,step=-1)
-		elseif n%4 == 3
-			x_iter = range(2,199,step=1)
-			y_iter = range(199,2,step=-1)
-		end
-		for (x) in x_iter
-			for y in y_iter
-				new_max = gamma*maximum([maximum((hm_orbits[x+k,y+j]) for k in [-1,0,1]) for j in [-1,0,1]])
-				new_min = gamma*minimum([minimum((hm_orbits[x+k,y+j]) for k in [-1,0,1]) for j in [-1,0,1]])
-				
-				if abs(new_min)>=abs(new_max)
-					if hm_orbits[x,y] > new_min
-						hm_orbits[x,y] = new_min
-					end
-				else
-					if hm_orbits[x,y]<new_max
-						hm_orbits[x,y] = new_max
-					end
-				end
-			end
-		end
-	end
-	println(maximum(hm_orbits))
-	heatmap(hm_orbits)
-end
-  ╠═╡ =#
-
 # ╔═╡ 7ed77d88-3cc6-491c-b2b3-8ea4fa53a11a
 
 
