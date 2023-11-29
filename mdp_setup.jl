@@ -33,11 +33,10 @@ import POMDPTools: ImplicitDistribution, Deterministic
 All right, lets try and set up the POMDP
 
 S = position + velocity of target
- -> ECI Format from Propogator
+-> ECI Format from Propogator
 
 A = 11 tanjential deltaV's - 5 positive and 5 negative. Need to determine these later
- -> [-5,-4,-3,-2,-1,0,1,2,3,4,5]; this will be multiplied by factor to get the applied deltaV.
-
+ -> [-5,-4,-3,-2,-1,0,1,2,3,4,5]; this will be multiplied by factor to get the applied deltaV
 T = Lets say it does what we want with P = .98, P=.01 we go one step faster and P=.01 we go one step slower. Can model as a gaussian later.
 
 R = Instant Reward -> how much do we like the state we are currently in. We can write this as a function of the distance from the nearest point on the orbit ellipse and the distance to any known intruders. Not including velocity for now, will probably have to iniclude a velocity term later.
@@ -50,37 +49,37 @@ Things to do:
 0. Write get_S(SatelliteToolbox.propogator), get_T(state,action), get_R(state) 
 
 1. Belief state of our satellite (I think we should have very high confidence if not perfect understanding of where our satellite is) - determine this with particle filtering.
-
+-- Can we say that we basically know our satellite position and it's the intruder location that is unknown? -- Kendall 
 2. Belief state of our intruders - We DON'T know anything about these aside from what our observers tell us. (Decide on positions of observers now, but make it abstract so we can make this three dimensional later - maybe that is how we get this into a conference)
-
+-- maybe frame this as the partially observable part of the problem? IDK how that works with having the two different state spaces (maybe look at drone surveillance example?) 
 3. Decide how many time steps we want to look at to plan our trajectory. How many is computationally viable?
 
 4. Decide how much offline planning vs online planning we need to do. How much "training" does this model require.
-
+-- Experiment with several different things and see which works best?
 5. Build Decision tree for decision state based on hungry baby problem (is there or is there not a collision ahead.) [is this really nescessary?]
+-- probably not necissary because we have such a large state space, can maybe build a visualization like the one in the book for aircraft collision avoidance 
 =#
 
 # ╔═╡ 32d2bcea-439d-402d-b902-ac8b248928d9
 function visualize_orbits(orbps,t0,dt,tend)
 	n_sats = length(orbps)
-	
 	plt3d = plot3d(
-    n_sats,
-    xlim = (-1e7, 1e7),
-    ylim = (-1e7, 1e7),
-    zlim = (-1e7, 1e7),
-    title = "Orbit",
-    legend = false,
-    marker = 2,
+    	n_sats,
+    	xlim = (-1e7, 1e7),
+    	ylim = (-1e7, 1e7),
+    	zlim = (-1e7, 1e7),
+    	title = "Orbit",
+    	legend = false,
+    	marker = 2,
 	)
 	
 	plt = plot(
-	    n_sats,
-	    xlim = (-1e7, 1e7),
-	    ylim = (-1e7, 1e7),
-	    title = "Orbit",
-	    legend = false,
-	    marker = 2,
+	    	n_sats,
+	    	xlim = (-1e7, 1e7),
+	   	ylim = (-1e7, 1e7),
+	    	title = "Orbit",
+	    	legend = false,
+	    	marker = 2,
 		aspect_ratio=:equal,
 	)
 
@@ -93,8 +92,6 @@ function visualize_orbits(orbps,t0,dt,tend)
 		push!(plt3d,new_pos[1,:],new_pos[2,:],new_pos[3,:])
 		push!(plt,new_pos[1,:],new_pos[2,:])
 	end
-	
-
 	return plt3d, plt
 end
 
@@ -118,16 +115,12 @@ function gen_orbp(state)
 	# state = [[x],[v],t]
 	kep = rv_to_kepler(state[1],state[2],state[3])
 	prop = Propagators.propagate(Val(:J4osc),kep)
-	
 end
 
 # ╔═╡ 5f664a70-44a9-4f00-b0d6-25db91ab4f41
 function next_state(state, a, dt::Int)
-
 	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
-	print(state)
 	pos, vel, t0 = state
-	
 	
 	unit_dV = 200.0 #m/s^2
 	dV_mag = unit_dV*a
@@ -140,7 +133,6 @@ function next_state(state, a, dt::Int)
 	new_orbp = Propagators.init(Val(:J4osc,), new_kep)
 	
 	return get_S(new_orbp, t0 + dt)
-	
 end 
 
 # ╔═╡ b781ffb6-7c96-4823-a517-2536d7be9d71
@@ -148,8 +140,9 @@ function dist2desired(state, desired::Float64)
 	# when I decide to make this usable for elliptical orbits will need to change desired
 	pos, vel, t = state
 	sat_rad = norm(pos)
-
-	#will return a positive value if outside of the orbit and a negative value if inside of the orbit. Maybe a better way to design this is using keplerian elements? like differential in eccentricity, RAAN, Perigree, anomaly, etc. Can use a covariance matrix to define these
+	# Will return a positive value if outside of the orbit and a negative value if inside of the orbit. 
+	# Maybe a better way to design this is using keplerian elements? 
+	# Like differential in eccentricity, RAAN, Perigree, anomaly, etc. Can use a covariance matrix to define these
 	return sat_rad - desired
 end
 
@@ -190,6 +183,7 @@ function get_collision_R(target_state, intruder_states)
 	end
 	return -max_penalty
 end
+  ╠═╡ =#
 
 # ╔═╡ 4136c7c6-5dfa-4098-8871-efe596c46f2d
 function get_R(s, a, sp, env)
@@ -222,90 +216,72 @@ begin
 				                        19     |> deg2rad # True Anomaly
 				)
 				new_intruder_orb = Propagators.init(Val(:J4osc), new_intruder_elements)
-
 				intruders = cat(dims=1,intruders,[get_S(new_intruder_orb,0)])
 			end
 		end
 	end
 end
 
-# ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
-# Pick a point for each of the observers. -> System not organized with observers, once I get a system set up to run simply, this is good. 
+# ╔═╡ 1926e94d-2847-4813-835d-29179460d291
+get_state_R(target,intruders, 7190.982e3)
 
-# ╔═╡ 7ae14eb0-a536-4321-95a9-c6fc3ccd7252
+# ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
+# Example of get_s at a specific time
+ex_pos, ex_vec = get_S(target_prop,6000)
+
+# ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
+get_S(target_prop,6000)
+
+# ╔═╡ a2f38244-567e-4981-8696-ea660093087d
+# begin - Re-Write this eventually to cycle through 
+
+# r = minimum([get_R(target, intruders, 7190.982e3) for t in range(0,10000,step=10)])
+
+# end
+
+# ╔═╡ f0ac903d-6b26-4649-852a-01aecb61b76d
+# ╠═╡ disabled = true
+#=╠═╡
+visualize_orbits(intruders,0,60,6000)
+  ╠═╡ =#
+
+# ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
 #=
 
-Initialize the MDP - Generate Initial Points, and forced collisions with intruders
+A good way to plot reward function could be a plot with dists from our desired orbit and dists from dangerous satellites. That way it would be easy to see when we should move and what our system ends up doing. We can do a hard-coded switch to a domain when we actually want to move.
+
+Next thing to do here: 
+
+Make a function to go from pos, vel in ECI to keplerian elements so that we can take an action and then propogate from the new orbit. That is really the next big step
 
 =#
 
-# ╔═╡ 872ea32f-4f2f-4fab-a24b-9c88268d99f3
-target_orb_elements = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        0.00, # eccentricity - Set to 0 for percfect circle in the ideal case
-                        0 |> deg2rad, # Inclination - Set to 0 for 2D simplification
-                        100    |> deg2rad, # Right Angle of Ascending Node
-                        90     |> deg2rad, # Arg. of Perigree
-                        19     |> deg2rad # True Anomaly
-)
+# ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
+# Pick a point for each of the observers.
 
-# ╔═╡ 011ae5da-d868-40dc-8a38-e2e0d5d65c94
-init_prop = Propagators.init(Val(:J4osc),target_orb_elements)
-
-# ╔═╡ 50bc6ea8-e87a-4f4d-bdc3-1683e325da78
-init_state = get_S(init_prop,0)
-
-# ╔═╡ d55f827c-7793-420f-8497-d4178db43e35
-begin
-	dangerous_times = [100, 1000, 2000, 5000, 10000]
-	intruder_orbps = []
-	Random.seed!(1234)
-	x_noise = 500*rand(MvNormal([0,0],Diagonal([1,1])))
-	v_noise = 250*rand(MvNormal([0,0],Diagonal([1,1])))
-	for t in dangerous_times
-		s_t = get_S(init_prop,t)
-		x = s_t[1]
-		v = s_t[2]
-		x1 = x[1] + x_noise[1]
-		x2 = x[2] + x_noise[2]
-		v1 = v[1] + v_noise[1]
-		v2 = v[2] + v_noise[2]
-		n_orbp = Propagators.init(Val(:J4osc),rv_to_kepler([x1,x2,0], [v1,v2,0], s_t[3]))
-		intruder_orbps = vcat(intruder_orbps,n_orbp)
-	end
-	plt3d, plt = visualize_orbits(intruder_orbps,0,10,15000)
-	plt
-end
+# ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
+rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
 
 # ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
 sat_system = QuickPOMDP(
-	
 	actions = range(-5,5,step=1),
-    obstype = Array,
-    discount = 0.95,
-
-    transition = function (s, a)        
+    	obstype = Array,
+    	discount = 0.95,
+	transition = function (s, a)        
         ImplicitDistribution() do rng
-			
-            dt = 10
-			
-			a_noise = Normal(a,.1)
-			xp, vp, tp = next_state(s, a_noise, dt)
+            x, v, t  = s
+
+			xp,vp,t=[0,0,0]
             
-            return [xp, vp, t]
+            return (xp, vp, t)
         end
     end,
-
     observation = (a, sp) -> Deterministic(sp) #= IDK how to fill this in correctly =#,
-
     reward = function (s, a, sp)
         return get_R(s,a,sp,[intruder_orbps,7190.98e3])
     end,
-
     initialstate = Deterministic(init_state),
     isterminal = s -> s[3] < 11000
-	
 )
 
 # ╔═╡ a7df68d7-57b0-43cf-a825-3fae0e2e6462
