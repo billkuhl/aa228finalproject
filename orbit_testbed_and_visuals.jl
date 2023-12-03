@@ -25,6 +25,9 @@ using StatsPlots
 # ╔═╡ 450af57c-f82e-4a41-8181-e0d0872d3070
 using Distributions
 
+# ╔═╡ dfeb65fc-874a-4a47-8c7a-8b130449e96f
+
+
 # ╔═╡ a70fa57b-7cec-44ac-9af3-316334e5bc4c
 #=
 
@@ -1869,6 +1872,7 @@ version = "1.4.1+1"
 # ╠═19762763-acb8-43b5-956a-d05f5cc1d204
 # ╠═2d05880b-dbe4-4967-b81e-46902403d48d
 # ╠═450af57c-f82e-4a41-8181-e0d0872d3070
+# ╠═dfeb65fc-874a-4a47-8c7a-8b130449e96f
 # ╠═a70fa57b-7cec-44ac-9af3-316334e5bc4c
 # ╠═a55e2680-595f-41fa-a3f9-71307f4b5d63
 # ╠═34416ea5-f3d9-4470-bc3b-7309bc055cd1

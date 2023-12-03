@@ -19,6 +19,9 @@ using SatelliteToolbox
 # ╔═╡ 2179d7cd-3654-48ab-9bc8-58ceda115683
 using LinearAlgebra
 
+# ╔═╡ ce1710e6-3ed7-47c8-a209-78d160a7ef8e
+include("transition.jl")
+
 # ╔═╡ 720cfa9e-fd91-44cb-8c02-be7a621ac69f
 import QuickPOMDPs: QuickPOMDP
 
@@ -39,6 +42,12 @@ end
 struct SatState
 	x::Array
 	v::Array
+end
+
+# ╔═╡ 5b609115-a0a2-4791-bb1c-83686fd3ff01
+struct MDPState
+	sat::SatState
+	intruders::Array
 end
 
 # ╔═╡ 13a5dd69-36ba-4256-b0b7-21213122cf35
@@ -63,34 +72,6 @@ x,v = Propagators.propagate!(orbp2,-5000)
 
 # ╔═╡ 317a5d6e-6f75-4ae4-82b0-0de4ee7e1594
 rv_to_kepler(x,v)
-
-# ╔═╡ e9d588b0-f5b6-48f7-ac34-269ed3966b86
-#= 
-Functions to go from states to propagators and vice versa.
-=#
-
-# ╔═╡ b23dd7d4-8e99-40d1-8d4a-4501900ae13a
-function prop_to_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorTwoBody,t)
-	# Turns propogators into state at a particular point.
-	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
-	new_sat = SatState()
-	new_sat.x, new_sat.v  = Propagators.propagate!(orbp,t)
-	return new_sat
-end
-
-# ╔═╡ c6185553-441b-4c35-a5eb-ab1fc66ff773
-function gen_orbp(state)
-	
-	kep = rv_to_kepler(state.x,state.v)
-	prop = Propagators.init(Val(:TwoBody),kep)
-	return prop
-	
-end
-
-# ╔═╡ a37f05c2-7f5b-4afc-af2c-2043ef7f5fb6
-#=
-Reward Functions
-=#
 
 # ╔═╡ dac90f2a-8ed1-4dd8-8f48-4eef2f000950
 function get_action_R(a::Float64)
@@ -166,37 +147,6 @@ function get_R(s, a, sp, env)
 	action_penalty = get_action_R(a)
 	
 end
-
-# ╔═╡ 41b2e02a-2401-4fbf-ad91-13b14836cfac
-#= 
-Function to Implement A
-=#
-
-# ╔═╡ 773a3464-fef1-4ce2-ae90-dd2c012865de
-function prop_state(state,dt)
-	orbp = gen_orbp(state)
-	new_x,new_v = Propagators.propagate!(orbp,dt)
-	new_state = SatState(new_x,new_v)
-	return new_state
-end
-
-# ╔═╡ 6bcdf5f7-b633-4d7a-9e9a-5ce722097afd
-function next_state(state, a, dt::Int)
-	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
-	pos, vel, t0 = state
-	
-	unit_dV = 200.0 #m/s^2
-	dV_mag = unit_dV*a
-	u_vel = vel/norm(vel)
-
-	new_vel = vel + dV_mag*u_vel
-	
-	new_kep = rv_to_kepler(pos, new_vel,t0)
-	
-	new_orbp = Propagators.init(Val(:TwoBody,), new_kep)
-	
-	return get_S(new_orbp, t0 + dt)
-end 
 
 # ╔═╡ 155d5391-d7cc-4441-83f5-cce735338939
 #=
@@ -1818,17 +1768,15 @@ version = "1.4.1+1"
 # ╠═354521b4-742a-4f0c-8405-abf260aa86b9
 # ╠═66cec90a-9eec-46b7-ae79-6d7a0ec34e74
 # ╠═2179d7cd-3654-48ab-9bc8-58ceda115683
+# ╠═ce1710e6-3ed7-47c8-a209-78d160a7ef8e
 # ╠═41cd5eff-d022-448e-9f72-284f02c6b0f9
+# ╠═5b609115-a0a2-4791-bb1c-83686fd3ff01
 # ╠═2642b4c0-8efd-11ee-1f1e-79b8c0c278df
 # ╠═13a5dd69-36ba-4256-b0b7-21213122cf35
 # ╠═c6e085b7-c7dc-4eee-b58a-39d5661e6158
 # ╠═a1fbe6bc-440d-4034-9e70-a760f487ee3d
 # ╠═c428a81e-5274-4e85-8631-09fd6988d88b
 # ╠═317a5d6e-6f75-4ae4-82b0-0de4ee7e1594
-# ╠═e9d588b0-f5b6-48f7-ac34-269ed3966b86
-# ╠═b23dd7d4-8e99-40d1-8d4a-4501900ae13a
-# ╠═c6185553-441b-4c35-a5eb-ab1fc66ff773
-# ╠═a37f05c2-7f5b-4afc-af2c-2043ef7f5fb6
 # ╠═c935f206-ea6d-4eae-abf5-6f6174970bd8
 # ╠═213f8280-5abd-49ce-93e2-aa71ad0f227d
 # ╠═dac90f2a-8ed1-4dd8-8f48-4eef2f000950
@@ -1836,9 +1784,6 @@ version = "1.4.1+1"
 # ╠═e83a8f57-9a68-45c3-839d-674b795c3754
 # ╠═a64eb219-e62a-4b85-a52e-cd4e2a8e9f8a
 # ╠═ee26ec4e-4479-4921-9581-83d24fc4f2d5
-# ╠═41b2e02a-2401-4fbf-ad91-13b14836cfac
-# ╠═773a3464-fef1-4ce2-ae90-dd2c012865de
-# ╠═6bcdf5f7-b633-4d7a-9e9a-5ce722097afd
 # ╠═155d5391-d7cc-4441-83f5-cce735338939
 # ╠═1729caf1-6658-48a5-9a6f-c4d9c76eb38b
 # ╠═a831ce5b-07a6-46c8-a329-3c5e1f38d006
