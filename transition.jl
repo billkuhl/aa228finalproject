@@ -1,11 +1,9 @@
-include("structure.jl")
-
 function prop_to_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorTwoBody,t)
 	# Turns propogators into state at a particular point.
 	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
-	new_sat = SatState()
-	new_sat.x, new_sat.v  = Propagators.propagate!(orbp,t)
-	return new_sat
+	
+	x, v  = Propagators.propagate!(orbp,t)
+	return SatState(x,v)
 end
 
 function gen_orbp(state::SatState)

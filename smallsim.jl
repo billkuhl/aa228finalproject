@@ -51,8 +51,10 @@ initial_state = SatState(x_initial, v_initial)
 # ╔═╡ e022565c-2cda-470e-abd6-e9bb64a09224
 x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_state),10000)
 
-# ╔═╡ 3504baef-e1db-4a3d-a7cf-7c7efcdbafb9
+# ╔═╡ 7b055cfc-f22d-466c-829a-a16f7dabc6dc
 Random.seed!(123)
+
+# ╔═╡ bbbe57b3-9714-4ec1-a32a-275e7a19e514
 intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0])))
 
 # ╔═╡ b910f9f1-8495-441d-b10f-a70ffe41f5cb
@@ -1635,7 +1637,8 @@ version = "1.4.1+1"
 # ╠═8c8c17f6-a49a-4e1e-ab39-1aac09dcfc3e
 # ╠═f3506065-9c89-4526-949d-47fb828781d6
 # ╠═e022565c-2cda-470e-abd6-e9bb64a09224
-# ╠═3504baef-e1db-4a3d-a7cf-7c7efcdbafb9
+# ╠═7b055cfc-f22d-466c-829a-a16f7dabc6dc
+# ╠═bbbe57b3-9714-4ec1-a32a-275e7a19e514
 # ╠═b910f9f1-8495-441d-b10f-a70ffe41f5cb
 # ╠═5cafd840-bc1c-4d3b-a266-6f91a2051339
 # ╠═dcbba1e9-dc0c-47f0-9705-597a27e290aa
