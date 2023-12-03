@@ -19,11 +19,11 @@ using Distributions
 # ╔═╡ 81ad1bc7-6a82-40a7-9dcc-bd7f71fcf63a
 using StatsPlots
 
-# ╔═╡ c35e823b-50f0-4b29-9c5c-1f3084c7bab9
-import QuickPOMDPs: QuickPOMDP
-
 # ╔═╡ 662b6918-c3ca-446a-9a38-273c76904cc9
 using Random
+
+# ╔═╡ c35e823b-50f0-4b29-9c5c-1f3084c7bab9
+import QuickPOMDPs: QuickPOMDP
 
 # ╔═╡ 6ab92168-edb2-4915-8e37-485c5d77eb4e
 import POMDPTools: ImplicitDistribution, Deterministic
@@ -183,7 +183,6 @@ function get_collision_R(target_state, intruder_states)
 	end
 	return -max_penalty
 end
-  ╠═╡ =#
 
 # ╔═╡ 4136c7c6-5dfa-4098-8871-efe596c46f2d
 function get_R(s, a, sp, env)
@@ -222,45 +221,8 @@ begin
 	end
 end
 
-# ╔═╡ 1926e94d-2847-4813-835d-29179460d291
-get_state_R(target,intruders, 7190.982e3)
-
-# ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
-# Example of get_s at a specific time
-ex_pos, ex_vec = get_S(target_prop,6000)
-
-# ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
-get_S(target_prop,6000)
-
-# ╔═╡ a2f38244-567e-4981-8696-ea660093087d
-# begin - Re-Write this eventually to cycle through 
-
-# r = minimum([get_R(target, intruders, 7190.982e3) for t in range(0,10000,step=10)])
-
-# end
-
-# ╔═╡ f0ac903d-6b26-4649-852a-01aecb61b76d
-# ╠═╡ disabled = true
-#=╠═╡
-visualize_orbits(intruders,0,60,6000)
-  ╠═╡ =#
-
-# ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
-#=
-
-A good way to plot reward function could be a plot with dists from our desired orbit and dists from dangerous satellites. That way it would be easy to see when we should move and what our system ends up doing. We can do a hard-coded switch to a domain when we actually want to move.
-
-Next thing to do here: 
-
-Make a function to go from pos, vel in ECI to keplerian elements so that we can take an action and then propogate from the new orbit. That is really the next big step
-
-=#
-
 # ╔═╡ 2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
 # Pick a point for each of the observers.
-
-# ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
-rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
 
 # ╔═╡ 2300bf2b-160c-4376-b930-e1b3d5f4adea
 sat_system = QuickPOMDP(
@@ -312,6 +274,37 @@ Thoughts on making this more computationally simple. When doing lookaheads, take
 If we get one to work, we can try and extend this to multiple satellites and make a new reward function to account for amount of the earth covered.
 
 =#
+
+# ╔═╡ 55ef0977-f3ef-41af-8b6f-22ed738eb462
+get_S(target_prop,6000)
+
+# ╔═╡ a2f38244-567e-4981-8696-ea660093087d
+# begin - Re-Write this eventually to cycle through 
+
+# r = minimum([get_R(target, intruders, 7190.982e3) for t in range(0,10000,step=10)])
+
+# end
+
+# ╔═╡ 6b12952d-d728-4cbf-905d-e782fba70162
+#=
+
+A good way to plot reward function could be a plot with dists from our desired orbit and dists from dangerous satellites. That way it would be easy to see when we should move and what our system ends up doing. We can do a hard-coded switch to a domain when we actually want to move.
+
+Next thing to do here: 
+
+Make a function to go from pos, vel in ECI to keplerian elements so that we can take an action and then propogate from the new orbit. That is really the next big step
+
+=#
+
+# ╔═╡ 6e83a341-ff00-4a9f-b7f7-b8bb705e5150
+# Example of get_s at a specific time
+ex_pos, ex_vec = get_S(target_prop,6000)
+
+# ╔═╡ f0817ff9-95d6-46e2-845d-d4dd6b115acd
+rv_to_kepler(test_pos,test_vel+[.01,.01,.01],3093)
+
+# ╔═╡ 1926e94d-2847-4813-835d-29179460d291
+get_state_R(target,intruders, 7190.982e3)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1999,11 +1992,6 @@ version = "1.4.1+1"
 # ╠═7d143ada-33bd-4c08-9855-3daee2b14348
 # ╠═572834bd-4158-426e-8112-200fa1bc1771
 # ╠═2913c049-c7ad-4ac4-b622-5fd8a95c1fe9
-# ╠═7ae14eb0-a536-4321-95a9-c6fc3ccd7252
-# ╠═872ea32f-4f2f-4fab-a24b-9c88268d99f3
-# ╠═011ae5da-d868-40dc-8a38-e2e0d5d65c94
-# ╠═50bc6ea8-e87a-4f4d-bdc3-1683e325da78
-# ╠═d55f827c-7793-420f-8497-d4178db43e35
 # ╠═2300bf2b-160c-4376-b930-e1b3d5f4adea
 # ╠═a7df68d7-57b0-43cf-a825-3fae0e2e6462
 # ╠═13e33a26-f86c-4169-8319-3df5f9f3da23
@@ -2012,5 +2000,11 @@ version = "1.4.1+1"
 # ╠═72db24b7-7572-4c95-b386-ab098dd8a533
 # ╠═f4a71200-5187-494a-875b-aaab2700ddd6
 # ╠═8ece40e9-4b77-4083-88a0-083b5dccaf28
+# ╠═55ef0977-f3ef-41af-8b6f-22ed738eb462
+# ╠═a2f38244-567e-4981-8696-ea660093087d
+# ╠═6b12952d-d728-4cbf-905d-e782fba70162
+# ╠═6e83a341-ff00-4a9f-b7f7-b8bb705e5150
+# ╠═f0817ff9-95d6-46e2-845d-d4dd6b115acd
+# ╠═1926e94d-2847-4813-835d-29179460d291
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
