@@ -16,6 +16,9 @@ using Distributions
 # ╔═╡ 66cec90a-9eec-46b7-ae79-6d7a0ec34e74
 using SatelliteToolbox
 
+# ╔═╡ 2179d7cd-3654-48ab-9bc8-58ceda115683
+using LinearAlgebra
+
 # ╔═╡ 720cfa9e-fd91-44cb-8c02-be7a621ac69f
 import QuickPOMDPs: QuickPOMDP
 
@@ -38,25 +41,28 @@ struct SatState
 	v::Array
 end
 
-# ╔═╡ f724a327-b67c-40c3-809b-f584b94f3ba9
-struct IntruderSat
-	orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating
-end
-
 # ╔═╡ 13a5dd69-36ba-4256-b0b7-21213122cf35
+test_orb = KeplerianElements(
+				date_to_jd(2023,01,01), # Epoch
+				7190.982e3, # Semi-Major Axis
+				0.00, # eccentricity
+				98.405 |> deg2rad, # Inclination
+				100    |> deg2rad, # Right Angle of Ascending Node
+				90     |> deg2rad, # Arg. of Perigree
+				0     |> deg2rad # True Anomaly
+				)
 
-
-# ╔═╡ fd6911b0-6515-49c1-89f3-0941938ae436
-orbp, S = Propagators.fit_mean_elements!(Val(:J4osc), [date_to_jd(2023,01,01)], [[1e7,5e7,0]], [[1000,1000,.0]])
-
-# ╔═╡ 3a4c4d31-f807-421e-b13c-a021a4086c72
-Propagators.propagate!(orbp,date_to_jd(2023,01,01))
+# ╔═╡ c6e085b7-c7dc-4eee-b58a-39d5661e6158
+kepler_to_rv(test_orb)
 
 # ╔═╡ a1fbe6bc-440d-4034-9e70-a760f487ee3d
-orbp2 = Propagators.init(Val(:J4osc),rv_to_kepler([-3.67284e7, -1.12058e7, -3.96727e-9],[2044.26, 1712.78, 1.85155e-13]))
+orbp2 = Propagators.init(Val(:TwoBody),test_orb)
 
 # ╔═╡ c428a81e-5274-4e85-8631-09fd6988d88b
-Propagators.propagate!(orbp2,0)
+x,v = Propagators.propagate!(orbp2,-5000)
+
+# ╔═╡ 317a5d6e-6f75-4ae4-82b0-0de4ee7e1594
+rv_to_kepler(x,v)
 
 # ╔═╡ e9d588b0-f5b6-48f7-ac34-269ed3966b86
 #= 
@@ -64,21 +70,21 @@ Functions to go from states to propagators and vice versa.
 =#
 
 # ╔═╡ b23dd7d4-8e99-40d1-8d4a-4501900ae13a
-function prop_to_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorJ4Osculating,t)
+function prop_to_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorTwoBody,t)
 	# Turns propogators into state at a particular point.
 	# t is a specific timestamp in seconds relative to the initialized date (Jan 1 2023)
 	new_sat = SatState()
 	new_sat.x, new_sat.v  = Propagators.propagate!(orbp,t)
-	new_sat.t = t
 	return new_sat
 end
 
 # ╔═╡ c6185553-441b-4c35-a5eb-ab1fc66ff773
 function gen_orbp(state)
 	
-	# state = [[x],[v],t]
-	kep = rv_to_kepler(state[1],state[2],state[3])
-	prop = Propagators.propagate(Val(:J4osc),kep)
+	kep = rv_to_kepler(state.x,state.v)
+	prop = Propagators.init(Val(:TwoBody),kep)
+	return prop
+	
 end
 
 # ╔═╡ a37f05c2-7f5b-4afc-af2c-2043ef7f5fb6
@@ -100,11 +106,11 @@ Reward Helper Functions
 # ╔═╡ a64eb219-e62a-4b85-a52e-cd4e2a8e9f8a
 function dist2desired(state, desired::Float64)
 	# when I decide to make this usable for elliptical orbits will need to change desired
-	pos, vel, t = state
-	sat_rad = norm(pos)
+	sat_rad = norm(state.x)
 	# Will return a positive value if outside of the orbit and a negative value if inside of the orbit. 
 	# Maybe a better way to design this is using keplerian elements? 
 	# Like differential in eccentricity, RAAN, Perigree, anomaly, etc. Can use a covariance matrix to define these
+	
 	return sat_rad - desired
 end
 
@@ -128,7 +134,7 @@ end
 function dists2intruders(state, intruder_states::Array)
 	intruder_dists = []
 	for i_intruder in intruder_states
-		int_dist = norm(state[1]-i_intruder[1])
+		int_dist = norm(state.x-i_intruder.x)
 		intruder_dists = vcat(intruder_dists,int_dist)
 	end
 	return intruder_dists
@@ -166,6 +172,14 @@ end
 Function to Implement A
 =#
 
+# ╔═╡ 773a3464-fef1-4ce2-ae90-dd2c012865de
+function prop_state(state,dt)
+	orbp = gen_orbp(state)
+	new_x,new_v = Propagators.propagate!(orbp,dt)
+	new_state = SatState(new_x,new_v)
+	return new_state
+end
+
 # ╔═╡ 6bcdf5f7-b633-4d7a-9e9a-5ce722097afd
 function next_state(state, a, dt::Int)
 	# As it is written now this is deterministic. If doing Monte Carlo we'll need to make sure this is randomised.
@@ -179,40 +193,75 @@ function next_state(state, a, dt::Int)
 	
 	new_kep = rv_to_kepler(pos, new_vel,t0)
 	
-	new_orbp = Propagators.init(Val(:J4osc,), new_kep)
+	new_orbp = Propagators.init(Val(:TwoBody,), new_kep)
 	
 	return get_S(new_orbp, t0 + dt)
 end 
 
+# ╔═╡ 155d5391-d7cc-4441-83f5-cce735338939
+#=
+Initialize our satellite using Keplerian Elements. We are setting parameters [Inclination, RAAN, Arg of Perigree] to zero to make the orbit 2d in the equatorial plane.
+=#
+
+# ╔═╡ 1729caf1-6658-48a5-9a6f-c4d9c76eb38b
+initial_kep_pos = KeplerianElements(
+                        date_to_jd(2023,01,01), # Epoch
+                        7190.982e3, # Semi-Major Axis
+                        0.001111, # eccentricity
+                        0 |> deg2rad, # Inclination
+                        0    |> deg2rad, # Right Angle of Ascending Node
+                        0     |> deg2rad, # Arg. of Perigree
+                        0     |> deg2rad # True Anomaly
+                        )
+
+# ╔═╡ a831ce5b-07a6-46c8-a329-3c5e1f38d006
+x_initial, v_initial = kepler_to_rv(initial_kep_pos)
+
+# ╔═╡ ecb0d117-9d54-4f3b-9ef8-766037b0894a
+initial_state = SatState(x_initial, v_initial)
+
+# ╔═╡ 6b83ebbc-08ea-4f5b-a26d-858e89e8e19c
+#=
+
+Create Intruders
+
+For the first test case we have a single intruder that collides with our satellite at T = 5000s
+
+=#
+
+# ╔═╡ 63504d70-d0d0-417e-bcf9-b4970fbde499
+# find the position of our satellite at T = 5000s
+x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_state),10000)
+
+# ╔═╡ 5eebee14-f753-4cbd-b05c-28fb4234d04f
+#create noise for the velocity so it isn't the same orbit as our initial state
+begin
+Random.seed!(123)
+intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0])))
+end
+
+# ╔═╡ bbaa6f39-51fd-46ae-bc98-42544c3c6e4c
+intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise)
+
+# ╔═╡ 50734805-faca-43ee-8051-e29c51d35cb1
+# get initial position of intruder
+intruder_initial_state = prop_state(intruder_collide_state,-10000)
+
+# ╔═╡ ffa62b3d-0a04-455e-ad37-8637fdcb4232
+prop_state(intruder_initial_state,5000)
+
+# ╔═╡ baea2174-f0db-4f63-bf6c-a71293e0c060
+# propagate it backwards to get an initial position at T = 0 for our intruder
+
+
 # ╔═╡ 0f13fc2e-e4a4-4dfd-b35e-0b9961bba69a
 mdp = SatMDP(SatState,[-1,0,1],get_R,next_state,.9,10)
-
-# ╔═╡ 5be6f093-af9a-474a-953d-f5b770b556d2
-sat_system = QuickPOMDP(
-	actions = mdp.A,
-    	obstype = Array,
-    	discount = 0.95,
-	transition = function (s, a)        
-        ImplicitDistribution() do rng
-            x, v, t  = s
-
-			xp,vp,t=[0,0,0]
-            
-            return (xp, vp, t)
-        end
-    end,
-    observation = (a, sp) -> Deterministic(sp) #= IDK how to fill this in correctly =#,
-    reward = function (s, a, sp)
-        return get_R(s,a,sp,[intruder_orbps,7190.98e3])
-    end,
-    initialstate = Deterministic(init_state),
-    isterminal = s -> s[3] < 11000
-)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 QuickPOMDPs = "8af83fb2-a731-493c-9049-9e19dbce6165"
@@ -233,7 +282,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "58935140e9d0b90d8c7a1d336840b0786978446e"
+project_hash = "a789274f008a21b74c898271310de23b629b9e77"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Test"]
@@ -1768,14 +1817,14 @@ version = "1.4.1+1"
 # ╠═9e0a1999-17f4-42cd-9800-45ea545bd89e
 # ╠═354521b4-742a-4f0c-8405-abf260aa86b9
 # ╠═66cec90a-9eec-46b7-ae79-6d7a0ec34e74
+# ╠═2179d7cd-3654-48ab-9bc8-58ceda115683
 # ╠═41cd5eff-d022-448e-9f72-284f02c6b0f9
 # ╠═2642b4c0-8efd-11ee-1f1e-79b8c0c278df
-# ╠═f724a327-b67c-40c3-809b-f584b94f3ba9
 # ╠═13a5dd69-36ba-4256-b0b7-21213122cf35
-# ╠═fd6911b0-6515-49c1-89f3-0941938ae436
-# ╠═3a4c4d31-f807-421e-b13c-a021a4086c72
+# ╠═c6e085b7-c7dc-4eee-b58a-39d5661e6158
 # ╠═a1fbe6bc-440d-4034-9e70-a760f487ee3d
 # ╠═c428a81e-5274-4e85-8631-09fd6988d88b
+# ╠═317a5d6e-6f75-4ae4-82b0-0de4ee7e1594
 # ╠═e9d588b0-f5b6-48f7-ac34-269ed3966b86
 # ╠═b23dd7d4-8e99-40d1-8d4a-4501900ae13a
 # ╠═c6185553-441b-4c35-a5eb-ab1fc66ff773
@@ -1788,8 +1837,19 @@ version = "1.4.1+1"
 # ╠═a64eb219-e62a-4b85-a52e-cd4e2a8e9f8a
 # ╠═ee26ec4e-4479-4921-9581-83d24fc4f2d5
 # ╠═41b2e02a-2401-4fbf-ad91-13b14836cfac
+# ╠═773a3464-fef1-4ce2-ae90-dd2c012865de
 # ╠═6bcdf5f7-b633-4d7a-9e9a-5ce722097afd
+# ╠═155d5391-d7cc-4441-83f5-cce735338939
+# ╠═1729caf1-6658-48a5-9a6f-c4d9c76eb38b
+# ╠═a831ce5b-07a6-46c8-a329-3c5e1f38d006
+# ╠═ecb0d117-9d54-4f3b-9ef8-766037b0894a
+# ╠═6b83ebbc-08ea-4f5b-a26d-858e89e8e19c
+# ╠═63504d70-d0d0-417e-bcf9-b4970fbde499
+# ╠═5eebee14-f753-4cbd-b05c-28fb4234d04f
+# ╠═bbaa6f39-51fd-46ae-bc98-42544c3c6e4c
+# ╠═50734805-faca-43ee-8051-e29c51d35cb1
+# ╠═ffa62b3d-0a04-455e-ad37-8637fdcb4232
+# ╠═baea2174-f0db-4f63-bf6c-a71293e0c060
 # ╠═0f13fc2e-e4a4-4dfd-b35e-0b9961bba69a
-# ╠═5be6f093-af9a-474a-953d-f5b770b556d2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
