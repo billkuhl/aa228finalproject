@@ -35,7 +35,7 @@ include("structure.jl")
 initial_kep_pos = KeplerianElements(
                         date_to_jd(2023,01,01), # Epoch
                         7190.982e3, # Semi-Major Axis
-                        0.001111, # eccentricity
+                        0.00, # eccentricity
                         0 |> deg2rad, # Inclination
                         0    |> deg2rad, # Right Angle of Ascending Node
                         0     |> deg2rad, # Arg. of Perigree
@@ -46,10 +46,10 @@ initial_kep_pos = KeplerianElements(
 x_initial, v_initial = kepler_to_rv(initial_kep_pos)
 
 # ╔═╡ f3506065-9c89-4526-949d-47fb828781d6
-initial_state = SatState(x_initial, v_initial)
+initial_sat_state = SatState(x_initial, v_initial)
 
 # ╔═╡ e022565c-2cda-470e-abd6-e9bb64a09224
-x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_state),10000)
+x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000)
 
 # ╔═╡ 7b055cfc-f22d-466c-829a-a16f7dabc6dc
 Random.seed!(123)
@@ -63,11 +63,26 @@ intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise)
 # ╔═╡ 5cafd840-bc1c-4d3b-a266-6f91a2051339
 intruder_initial_state = prop_state(intruder_collide_state,-10000)
 
+# ╔═╡ 834c45db-e8cc-4809-8e6a-c7897d4c1e2b
+initial_state = MDPState(initial_sat_state,[intruder_initial_state])
+
 # ╔═╡ dcbba1e9-dc0c-47f0-9705-597a27e290aa
+onecollider = QuickPOMDP(
+    actions = [-1., 0., 1.],
+    discount = 0.95,
+	obstype = MDPState,
+    transition = function (s, a)        
+        Deterministic(next_state(s,a))
+    end,
 
+	observation = (sp) -> sp,
 
-# ╔═╡ 7d35cae6-897a-4e1e-a767-b79380af0db7
+    reward = function (s, a)
+        get_R(s,a)
+    end,
 
+    initialstate = Deterministic(initial_state)
+)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1641,7 +1656,7 @@ version = "1.4.1+1"
 # ╠═bbbe57b3-9714-4ec1-a32a-275e7a19e514
 # ╠═b910f9f1-8495-441d-b10f-a70ffe41f5cb
 # ╠═5cafd840-bc1c-4d3b-a266-6f91a2051339
+# ╠═834c45db-e8cc-4809-8e6a-c7897d4c1e2b
 # ╠═dcbba1e9-dc0c-47f0-9705-597a27e290aa
-# ╠═7d35cae6-897a-4e1e-a767-b79380af0db7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
