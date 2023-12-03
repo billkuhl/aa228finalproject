@@ -1,6 +1,6 @@
-using("init.jl")
-using("structure.jl")
-using("transition.jl")
+# include("init.jl")
+# include("structure.jl")
+# include("transition.jl")
 
 function dists2intruders(s::MDPState)
 # need to iterate through all of the intruders 
@@ -58,6 +58,6 @@ function get_R(s::MDPState,a)
 	r_intruder = get_collision_R(s)
     r_orbit = get_orbit_R(s)
     total_reward = r_action + r_orbit +r_intruder 
-    
+
     return total_reward
 end 
