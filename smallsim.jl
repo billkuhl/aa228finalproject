@@ -68,6 +68,8 @@ initial_state = MDPState(initial_sat_state,[intruder_initial_state])
 
 # ╔═╡ dcbba1e9-dc0c-47f0-9705-597a27e290aa
 onecollider = QuickPOMDP(
+    # need the state generation 
+    
     actions = [-1., 0., 1.],
     discount = 0.95,
 	obstype = MDPState,
@@ -75,7 +77,7 @@ onecollider = QuickPOMDP(
         Deterministic(next_state(s,a))
     end,
 
-	observation = (sp) -> sp,
+	# observation = (sp) -> sp,
 
     reward = function (s, a)
         get_R(s,a)
