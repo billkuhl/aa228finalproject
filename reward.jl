@@ -14,13 +14,9 @@ end
 function get_collision_R(s::MDPState)
 # Calculates collision reward based on distance between satellite and intruders
     intruder_dists = dists2intruders(s)
-	penalty(dist) = 1e-6*(abs(dist))^3 # applies a penalty proportional to intruder distance
-	max_penalty = maximum([penalty(d) for d in intruder_dists])
-	if max_penalty < 0
-		max_penalty = 0
-	end
-
-	return -max_penalty
+    closest_intruder = minimum(intruder_dists) #gets the minimum distance from an intruder 
+    penalty = -1000*(1/(closest_intruder*1e-6))
+	return penalty
 end 
 
 function get_orbit_R(s::MDPState)
@@ -54,7 +50,7 @@ function get_action_R(a)
     else 
         r_action = -10
     end 
-    
+
     return r_action
 end 
 
