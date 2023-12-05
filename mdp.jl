@@ -9,7 +9,7 @@ using Random
 using Distributions
 using SatelliteToolbox
 using LinearAlgebra
-import QuickPOMDPs: QuickPOMDP
+import QuickPOMDPs: QuickPOMDP, QuickMDP
 import POMDPTools: ImplicitDistribution, Deterministic
 include("transition.jl")
 include("structure.jl")
@@ -39,9 +39,9 @@ initial_state = MDPState(initial_sat_state,[intruder_initial_state]) # Creates t
 
 satellite = QuickMDP(
     gen = function(s,a)
-        r = get_R(s,a) # gets reward for current state 
         sp = next_state(s,a) # propogates to next state 
-        return {sp = sp, r = r}
+        r = get_R(sp,a) # gets reward for current state 
+        return (sp = sp, r = r)
     end, 
     actions = [-1.,0,1], # forward, nothing, and backward
     discount = 0.95,
@@ -53,7 +53,8 @@ satellite = QuickMDP(
 )
 
 # Initialize and run solver
-solver = MCTSSolver(n_iterations = 20, depth = 20, exploration_constant = 5.0)
+solver = MCTSSolver(n_iterations = 10, depth = 20, exploration_constant = 5.0)
+# a = action(planner, initial_state)
 planner = solve(solver,satellite) # provides actions up to the specified depth(?)
 trajectory = simulate(planner,satellite,initial_state) # gets the trjectory for the planner implemented with the MDP
 plot_trajectory(trajectory)
