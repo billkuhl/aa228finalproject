@@ -19,26 +19,14 @@ using SatelliteToolbox
 # ╔═╡ 8a9338ac-bb4d-4301-aa2a-ffb2ed83afd7
 using LinearAlgebra
 
-# ╔═╡ 056b4c96-8f94-4ef0-8aa7-788549bc297c
-using MCTS
-
-# ╔═╡ 475b345a-d103-44ca-a5a7-2dd9ff4eb34c
-using POMDPs
-
 # ╔═╡ 266008da-46a9-48f2-a98f-e117a5f4edf5
 include("transition.jl")
 
-# ╔═╡ b3a8599c-4903-43e4-82f7-0f2807377af5
-include("reward.jl")
-
 # ╔═╡ b4406494-245e-4875-8ba5-8a6e5eaeca9b
-import QuickPOMDPs: QuickPOMDP, QuickMDP
+import QuickPOMDPs: QuickPOMDP
 
 # ╔═╡ 4ad6764b-9ab1-47a7-ac12-f088f770ba34
 import POMDPTools: ImplicitDistribution, Deterministic
-
-# ╔═╡ 90acfe5f-0db2-4917-9538-c507e8f86992
-using StaticArrays
 
 # ╔═╡ 695f4a02-836d-4f71-a192-8bf7a453c8a6
 include("structure.jl")
@@ -79,13 +67,17 @@ intruder_initial_state = prop_state(intruder_collide_state,-10000)
 initial_state = MDPState(initial_sat_state,[intruder_initial_state])
 
 # ╔═╡ dcbba1e9-dc0c-47f0-9705-597a27e290aa
-onecollider = QuickMDP(
+onecollider = QuickPOMDP(
+    # need the state generation 
+    
     actions = [-1., 0., 1.],
     discount = 0.95,
 	obstype = MDPState,
     transition = function (s, a)        
         Deterministic(next_state(s,a))
     end,
+
+	# observation = (sp) -> sp,
 
     reward = function (s, a)
         get_R(s,a)
@@ -94,26 +86,12 @@ onecollider = QuickMDP(
     initialstate = Deterministic(initial_state)
 )
 
-# ╔═╡ b8a13d56-6382-46c9-ad6a-a93266036074
-solver = MCTSSolver(n_iterations=10, depth=20, exploration_constant=5.0)
-
-# ╔═╡ 215f5edd-1fe6-47b6-a343-0afbc70fbbab
-planner = solve(solver, onecollider)
-
-# ╔═╡ 74c84a07-426f-4893-ab6d-74909fa2cf12
-a = action(planner, initial_state)
-
-# ╔═╡ 9bf3a925-1138-4613-b7da-2a1dd79b6a80
-dists2intruders(initial_state)
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-MCTS = "e12ccd36-dcad-5f33-8774-9175229e7b33"
 POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
-POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 QuickPOMDPs = "8af83fb2-a731-493c-9049-9e19dbce6165"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -121,9 +99,7 @@ SatelliteToolbox = "6ac157d9-b43d-51bb-8fab-48bf53814f4a"
 
 [compat]
 Distributions = "~0.25.103"
-MCTS = "~0.5.5"
 POMDPTools = "~0.1.6"
-POMDPs = "~0.9.6"
 Plots = "~1.39.0"
 QuickPOMDPs = "~0.2.14"
 SatelliteToolbox = "~0.12.0"
@@ -135,12 +111,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "1cfcc2f294a9a1f90268ba741c523d49b64f5026"
-
-[[deps.AbstractTrees]]
-git-tree-sha1 = "faa260e4cb5aba097a73fab382dd4b5819d8ec8c"
-uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.4.4"
+project_hash = "a789274f008a21b74c898271310de23b629b9e77"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Test"]
@@ -319,12 +290,6 @@ version = "0.6.2"
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
-
-[[deps.D3Trees]]
-deps = ["AbstractTrees", "HTTP", "JSON", "Random", "Sockets"]
-git-tree-sha1 = "cace6d05f71aeefe7ffd6f955a0725271f2b6cd5"
-uuid = "e3df1716-f71e-5df9-9e2d-98e193103c45"
-version = "0.3.3"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
@@ -746,12 +711,6 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.3"
-
-[[deps.MCTS]]
-deps = ["Colors", "D3Trees", "POMDPLinter", "POMDPTools", "POMDPs", "Printf", "ProgressMeter", "Random"]
-git-tree-sha1 = "b730b0ea0469100245585a30488e9e173bc70c0d"
-uuid = "e12ccd36-dcad-5f33-8774-9175229e7b33"
-version = "0.5.5"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -1689,12 +1648,8 @@ version = "1.4.1+1"
 # ╠═511be3f9-3549-4fb1-bb88-60136b77ba99
 # ╠═2da12bb9-042e-469e-9961-aa2996d08ce7
 # ╠═8a9338ac-bb4d-4301-aa2a-ffb2ed83afd7
-# ╠═056b4c96-8f94-4ef0-8aa7-788549bc297c
-# ╠═90acfe5f-0db2-4917-9538-c507e8f86992
-# ╠═475b345a-d103-44ca-a5a7-2dd9ff4eb34c
 # ╠═695f4a02-836d-4f71-a192-8bf7a453c8a6
 # ╠═266008da-46a9-48f2-a98f-e117a5f4edf5
-# ╠═b3a8599c-4903-43e4-82f7-0f2807377af5
 # ╠═552cbf9c-6edf-4dac-88c1-79a07e86247a
 # ╠═8c8c17f6-a49a-4e1e-ab39-1aac09dcfc3e
 # ╠═f3506065-9c89-4526-949d-47fb828781d6
@@ -1705,9 +1660,5 @@ version = "1.4.1+1"
 # ╠═5cafd840-bc1c-4d3b-a266-6f91a2051339
 # ╠═834c45db-e8cc-4809-8e6a-c7897d4c1e2b
 # ╠═dcbba1e9-dc0c-47f0-9705-597a27e290aa
-# ╠═b8a13d56-6382-46c9-ad6a-a93266036074
-# ╠═215f5edd-1fe6-47b6-a343-0afbc70fbbab
-# ╠═74c84a07-426f-4893-ab6d-74909fa2cf12
-# ╠═9bf3a925-1138-4613-b7da-2a1dd79b6a80
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

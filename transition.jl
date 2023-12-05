@@ -23,7 +23,7 @@ end
 
 function next_state(state::MDPState, a)
 
-	dt = 10 #randomly chosen, can change later
+	dt = 100 #randomly chosen, can change later
 	unit_dV = 200.0 #m/s^2
     if a == 0
         new_sat = state.sat
@@ -43,4 +43,3 @@ function next_state(state::MDPState, a)
     new_MDPState = MDPState(new_sat,new_intruders)
     return new_MDPState
 end 
-
