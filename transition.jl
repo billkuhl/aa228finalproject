@@ -30,7 +30,7 @@ function next_state(state::MDPState, a)
     else
         dV_mag = unit_dV*a
         u_vel = state.sat.v/norm(state.sat.v)
-        sat_changed_vel = SatState(state.sat.x, vel + dV_mag*u_vel)
+        sat_changed_vel = SatState(state.sat.x, state.sat.v + dV_mag*u_vel)
         new_sat = prop_state(sat_changed_vel, dt)
     end
 
