@@ -29,12 +29,14 @@ initial_kep_pos = KeplerianElements(
 x_initial, v_initial = kepler_to_rv(initial_kep_pos) # convert to position and velocity
 initial_sat_state = SatState(x_initial, v_initial) # create a SatState structure 
 
-x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) # propogate our intruder orbit (does this need to be in the reverse direction?)
+# x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) 
+x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),1000) 
 
 Random.seed!(123)
 intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0]))) # noise related to the intruder position
 intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise) 
-intruder_initial_state = prop_state(intruder_collide_state,-10000) # creating a SatState structure with the noise for intruder
+# intruder_initial_state = prop_state(intruder_collide_state,-10000) # creating a SatState structure with the noise for intruder
+intruder_initial_state = prop_state(intruder_collide_state,-1000)
 initial_state = MDPState(initial_sat_state,[intruder_initial_state]) # Creates the initial state for our MDP
 
 satellite = QuickMDP(
@@ -53,9 +55,22 @@ satellite = QuickMDP(
 )
 
 # Initialize and run solver
-solver = MCTSSolver(n_iterations = 10, depth = 20, exploration_constant = 5.0)
-# a = action(planner, initial_state)
+solver = MCTSSolver(n_iterations = 10000, depth = 10, exploration_constant = 5.0, tree_in_info=true)
 planner = solve(solver,satellite) # provides actions up to the specified depth(?)
+# a = action(planner, initial_state)
 trajectory = simulate(planner,satellite,initial_state) # gets the trjectory for the planner implemented with the MDP
-plot_trajectory(trajectory)
+
+# plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 
+# look at individual trees to make sure its doing ok 
+# increase number of n_iterations
+
+# a, info = POMDPTools.action_info(planner, satellite, initial_state)
+# tree = info[:tree]
+
+# inchrome(D3Tree(tree)) # assumes you have the tree, using D3Tree
+
+# if its spending a lot of time at suboptimal actions, then turn up exploration constant 
+# look at shorter depth, a lot of iterations, make sure the tree makes sense 
+# use the commands in Julia for the MCTS to investigate the tree (might be something liek above or might not)
+# Look at POMDP tools
