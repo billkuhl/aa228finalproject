@@ -17,20 +17,21 @@ include("reward.jl")
 
 # Initialize the keplarian elements of our orbit
 initial_kep_pos = KeplerianElements(
-                        date_to_jd(2023,01,01), # Epoch
-                        7190.982e3, # Semi-Major Axis
-                        0.00, # eccentricity
-                        0 |> deg2rad, # Inclination
-                        0    |> deg2rad, # Right Angle of Ascending Node
-                        0     |> deg2rad, # Arg. of Perigree
-                        0     |> deg2rad # True Anomaly
-                        )
+                                    date_to_jd(2023,01,01), # Epoch
+                                    7190.982e3, # Semi-Major Axis
+                                    0, # eccentricity
+                                    0 |> deg2rad, # Inclination
+                                    0    |> deg2rad, # Right Angle of Ascending Node
+                                    0     |> deg2rad, # Arg. of Perigree
+                                    0     |> deg2rad # True Anomaly
+                                    )
 
 x_initial, v_initial = kepler_to_rv(initial_kep_pos) # convert to position and velocity
+
 initial_sat_state = SatState(x_initial, v_initial) # create a SatState structure 
 
 # x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) 
-set_impact_time = 10000
+set_impact_time = 10
 x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),set_impact_time) 
 
 Random.seed!(123)
@@ -64,15 +65,15 @@ satellite = QuickMDP(
 
 # Initialize and run solver
 println("1. Creating Solver")
-solver = MCTSSolver(n_iterations = 1000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
+solver = MCTSSolver(n_iterations = 1000, depth = 100, exploration_constant = 5.0, enable_tree_vis=true)
 println("2. Creating Policy")
 policy = solve(solver,satellite) # provides actions up to the specified depth(?)
-
+a = action(policy, initial_state)
+println(a)
 # trajectory = simulate(p=policy,m=satellite,s0=initial_state) # gets the trjectory for the policy implemented with the MDP
 
 println("3. Generate Trajectory")
-for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=100)
-    println(get_collision_R(s))
+for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=1)
     println(a)
 end
 
