@@ -10,7 +10,7 @@ using Distributions
 using SatelliteToolbox
 using LinearAlgebra
 import QuickPOMDPs: QuickPOMDP, QuickMDP
-import POMDPTools: ImplicitDistribution, Deterministic
+import POMDPTools: ImplicitDistribution, Deterministic, stepthrough
 include("transition.jl")
 include("structure.jl")
 include("reward.jl")
@@ -30,35 +30,51 @@ x_initial, v_initial = kepler_to_rv(initial_kep_pos) # convert to position and v
 initial_sat_state = SatState(x_initial, v_initial) # create a SatState structure 
 
 # x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) 
-x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),1000) 
+set_impact_time = 10000
+x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),set_impact_time) 
 
 Random.seed!(123)
 intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0]))) # noise related to the intruder position
 intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise) 
 # intruder_initial_state = prop_state(intruder_collide_state,-10000) # creating a SatState structure with the noise for intruder
-intruder_initial_state = prop_state(intruder_collide_state,-1000)
+intruder_initial_state = prop_state(intruder_collide_state,-set_impact_time)
 initial_state = MDPState(initial_sat_state,[intruder_initial_state]) # Creates the initial state for our MDP
 
+println("0. Initialize MDP")
 satellite = QuickMDP(
-    gen = function(s,a)
+    gen = function(s,a, rng)
+
         sp = next_state(s,a) # propogates to next state 
-        r = get_R(sp,a) # gets reward for current state 
+        if sp == "InvOrbit"
+            sp = s
+            r = -1000 # If we are going to throw 
+        else
+            
+            r = get_R(sp,a) # gets reward for current state 
+            
+        end
         return (sp = sp, r = r)
     end, 
     actions = [-1.,0,1], # forward, nothing, and backward
-    discount = 0.95,
-    transition = function(s,a) # transition function
-        Deterministic(next_state(s,a))
-    end, 
+    discount = 0.95, 
     initialstate = Deterministic(initial_state)
     # not implementing terminal state for now? 
 )
 
+
 # Initialize and run solver
-solver = MCTSSolver(n_iterations = 10000, depth = 10, exploration_constant = 5.0, tree_in_info=true)
-planner = solve(solver,satellite) # provides actions up to the specified depth(?)
-# a = action(planner, initial_state)
-trajectory = simulate(planner,satellite,initial_state) # gets the trjectory for the planner implemented with the MDP
+println("1. Creating Solver")
+solver = MCTSSolver(n_iterations = 1000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
+println("2. Creating Policy")
+policy = solve(solver,satellite) # provides actions up to the specified depth(?)
+
+# trajectory = simulate(p=policy,m=satellite,s0=initial_state) # gets the trjectory for the policy implemented with the MDP
+
+println("3. Generate Trajectory")
+for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=100)
+    println(get_collision_R(s))
+    println(a)
+end
 
 # plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 

@@ -6,7 +6,7 @@ function prop_to_S(orbp::SatelliteToolboxPropagators.OrbitPropagatorTwoBody,t)
 	return SatState(x,v)
 end
 
-function gen_orbp(state::SatState)
+function gen_orbp(state)
 	
 	kep = rv_to_kepler(state.x,state.v)
 	prop = Propagators.init(Val(:TwoBody),kep)
@@ -14,24 +14,29 @@ function gen_orbp(state::SatState)
 	
 end
 
-function prop_state(state::SatState,dt)
+function prop_state(state,dt)
 	orbp = gen_orbp(state)
 	new_x,new_v = Propagators.propagate!(orbp,dt)
 	new_state = SatState(new_x,new_v)
 	return new_state
 end
 
-function next_state(state::MDPState, a)
+function next_state(state, a)
 
 	dt = 100 #randomly chosen, can change later
 	unit_dV = 200.0 #m/s^2
+
     if a == 0
         new_sat = state.sat
     else
         dV_mag = unit_dV*a
         u_vel = state.sat.v/norm(state.sat.v)
         sat_changed_vel = SatState(state.sat.x, state.sat.v + dV_mag*u_vel)
-        new_sat = prop_state(sat_changed_vel, dt)
+        try
+            new_sat = prop_state(sat_changed_vel, dt)
+        catch
+            return "InvOrbit"
+        end
     end
 
     new_intruders = []
