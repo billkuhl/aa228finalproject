@@ -9,8 +9,10 @@ using Random
 using Distributions
 using SatelliteToolbox
 using LinearAlgebra
+using ProgressBars
 import QuickPOMDPs: QuickPOMDP, QuickMDP
 import POMDPTools: ImplicitDistribution, Deterministic, stepthrough
+
 include("transition.jl")
 include("structure.jl")
 include("reward.jl")
@@ -31,7 +33,7 @@ x_initial, v_initial = kepler_to_rv(initial_kep_pos) # convert to position and v
 initial_sat_state = SatState(x_initial, v_initial) # create a SatState structure 
 
 # x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) 
-set_impact_time = 100
+set_impact_time = 10000
 x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),set_impact_time) 
 
 Random.seed!(123)
@@ -49,6 +51,7 @@ satellite = QuickMDP(
         if sp == "InvOrbit"
             sp = s
             r = -Inf # If we are going to throw 
+            println("Invalid Orbit Tested")
         else
             
             r = get_R(sp,a) # gets reward for current state 
@@ -75,20 +78,26 @@ println(a)
 # trajectory = simulate(p=policy,m=satellite,s0=initial_state) # gets the trjectory for the policy implemented with the MDP
 
 println("3. Generate Trajectory")
-for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=100)
-    # println("~~~~~~~~~~~~~~~~~~~")
-    # print("collision r : ")
-    # println(get_collision_R(s))
-    # print("action r : ")
-    # println(get_action_R(a))
-    # print("orbit r : ")
-    # println(get_orbit_R(s))
-    # print("total r : ")
-    # println(r)
-    # print("Action : ")
-    println(a)
+states = []
+rewards = []
+actions = []
+for (s,a,r) in ProgressBar(stepthrough(satellite,policy,"s,a,r", max_steps=100))
+    append!(states,[s])
+	append!(actions,[a])
+	append!(rewards,[r])
 end
 
+intruder_x = []
+target_x = []
+for s in states
+    push!(target_x,s.sat.x)
+    for intruder in s.intruders
+        push!(intruder_x,intruder.x)
+    end
+end
+
+println(target_x)
+println(intruder_x)
 # plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 
 # look at individual trees to make sure its doing ok 
