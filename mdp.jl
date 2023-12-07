@@ -1,5 +1,6 @@
 using POMDPs
 using POMDPModels
+using POMDPTools
 using MCTS
 using StaticArrays
 using Markdown
@@ -9,9 +10,9 @@ using Random
 using Distributions
 using SatelliteToolbox
 using LinearAlgebra
+using D3Trees
 using ProgressBars
 import QuickPOMDPs: QuickPOMDP, QuickMDP
-import POMDPTools: ImplicitDistribution, Deterministic, stepthrough
 
 include("transition.jl")
 include("structure.jl")
@@ -73,6 +74,8 @@ println("1. Creating Solver")
 solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
 println("2. Creating Policy")
 policy = solve(solver, satellite) # provides actions up to the specified depth(?)
+#criteria = evaluate(satellite, policy) # evaluates the given policy
+# value = value(policy,s) # returns expected sum of rewards if the policy is executed
 a = action(policy, initial_state)
 println(a)
 # trajectory = simulate(p=policy,m=satellite,s0=initial_state) # gets the trjectory for the policy implemented with the MDP
@@ -98,6 +101,12 @@ end
 
 println(target_x)
 println(intruder_x)
+println("4. Visualize Search Tree")
+
+a,info = action_info(planner,s)
+tree = info[:tree]
+inchrome(D3Tree(tree))
+
 # plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 
 # look at individual trees to make sure its doing ok 
