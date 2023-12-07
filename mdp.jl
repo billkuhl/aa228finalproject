@@ -99,9 +99,14 @@ for s in states
     end
 end
 
+println("Printing Sat Position Data")
 println(target_x)
+println("Print Intruder Position Data")
 println(intruder_x)
+
+
 println("4. Visualize Search Tree")
+
 
 a,info = action_info(planner,s)
 tree = info[:tree]
