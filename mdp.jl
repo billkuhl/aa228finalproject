@@ -9,6 +9,7 @@ using Random
 using Distributions
 using SatelliteToolbox
 using LinearAlgebra
+using D3Trees
 import QuickPOMDPs: QuickPOMDP, QuickMDP
 import POMDPTools: ImplicitDistribution, Deterministic, stepthrough
 include("transition.jl")
