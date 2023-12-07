@@ -23,11 +23,11 @@ end
 
 function next_state(state, a)
 
-	dt = 10 #randomly chosen, can change later
+	dt = 100 #randomly chosen, can change later
 	unit_dV = 20.0 #m/s^2
 
     if a == 0
-        new_sat = state.sat
+        new_sat = prop_state(state.sat,dt)
     else
         dV_mag = unit_dV*a
         u_vel = state.sat.v/norm(state.sat.v)
