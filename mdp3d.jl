@@ -24,7 +24,7 @@ initial_kep_pos = KeplerianElements(
                                     date_to_jd(2023,01,01), # Epoch
                                     7190.982e3, # Semi-Major Axis
                                     0, # eccentricity
-                                    0 |> deg2rad, # Inclination
+                                    30 |> deg2rad, # Inclination
                                     0    |> deg2rad, # Right Angle of Ascending Node
                                     0     |> deg2rad, # Arg. of Perigree
                                     0     |> deg2rad # True Anomaly
@@ -39,7 +39,7 @@ set_impact_time = 1000
 x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),set_impact_time) 
 
 Random.seed!(123)
-intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0]))) # noise related to the intruder position
+intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,500]))) # noise related to the intruder position
 intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise) 
 # intruder_initial_state = prop_state(intruder_collide_state,-10000) # creating a SatState structure with the noise for intruder
 intruder_initial_state = prop_state(intruder_collide_state,-set_impact_time)
@@ -100,22 +100,16 @@ for s in states
     end
 end
 
-
-println("4. Store Data")
-
-
-
-
 data = Dict("sat"=>target_x, "intruder"=>intruder_x, "actions" => actions, "rewards" => rewards)
 json_string = JSON.json(data)
 
-open("data\\2d_1k.json","w") do f
+open("data\\3d_1k.json","w") do f
   JSON.print(f, json_string)
 end
 
-# a,info = action_info(policy,initial_state)
-# tree = info[:tree]
-# inchrome(D3Tree(tree))
+
+
+
 
 # plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 
