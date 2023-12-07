@@ -11,7 +11,6 @@ using SatelliteToolbox
 using LinearAlgebra
 using D3Trees
 import QuickPOMDPs: QuickPOMDP, QuickMDP
-import POMDPTools: ImplicitDistribution, Deterministic, stepthrough
 include("transition.jl")
 include("structure.jl")
 include("reward.jl")
