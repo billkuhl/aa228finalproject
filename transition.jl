@@ -23,8 +23,8 @@ end
 
 function next_state(state, a)
 
-	dt = 100 #randomly chosen, can change later
-	unit_dV = 200.0 #m/s^2
+	dt = 10 #randomly chosen, can change later
+	unit_dV = 20.0 #m/s^2
 
     if a == 0
         new_sat = state.sat

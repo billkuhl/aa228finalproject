@@ -39,7 +39,7 @@ function get_orbit_R(s::MDPState, verbose::Bool = false)
                         0     |> deg2rad # True Anomaly
                         )
     
-    a_diff = abs(elements.a-desired.a)/1e5 # difference in semi-major axis
+    a_diff = abs(elements.a-desired.a)/1e4 # difference in semi-major axis
     e_diff = abs(elements.e-desired.e) # difference in eccentricity
 
     # Make a tolerance band, we don't really want it oscillating all over the place
@@ -68,9 +68,9 @@ end
 function get_action_R(a)
 # Calculates the reward of taking an action 
     if a == 0
-        r_action = 0
+        r_action = 100
     else 
-        r_action = -10
+        r_action = -100
     end 
 
     return r_action
@@ -81,7 +81,7 @@ function get_R(s::MDPState,a)
     r_action = get_action_R(a)
 	r_intruder = get_collision_R(s)
     r_orbit = get_orbit_R(s)
-    total_reward = r_action + r_orbit +r_intruder 
+    total_reward = r_action + r_orbit + r_intruder 
 
     return total_reward
 end 

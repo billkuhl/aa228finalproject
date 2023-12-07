@@ -31,7 +31,7 @@ x_initial, v_initial = kepler_to_rv(initial_kep_pos) # convert to position and v
 initial_sat_state = SatState(x_initial, v_initial) # create a SatState structure 
 
 # x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),10000) 
-set_impact_time = 10
+set_impact_time = 100
 x_5k,v_5k = Propagators.propagate!(gen_orbp(initial_sat_state),set_impact_time) 
 
 Random.seed!(123)
@@ -48,32 +48,44 @@ satellite = QuickMDP(
         sp = next_state(s,a) # propogates to next state 
         if sp == "InvOrbit"
             sp = s
-            r = -1000 # If we are going to throw 
+            r = -Inf # If we are going to throw 
         else
             
             r = get_R(sp,a) # gets reward for current state 
+
             
         end
         return (sp = sp, r = r)
     end, 
     actions = [-1.,0,1], # forward, nothing, and backward
     discount = 0.95, 
-    initialstate = Deterministic(initial_state)
+    initialstate = Deterministic(initial_state),
+    isterminal = r -> r == -Inf
     # not implementing terminal state for now? 
 )
 
 
 # Initialize and run solver
 println("1. Creating Solver")
-solver = MCTSSolver(n_iterations = 1000, depth = 100, exploration_constant = 5.0, enable_tree_vis=true)
+solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
 println("2. Creating Policy")
-policy = solve(solver,satellite) # provides actions up to the specified depth(?)
+policy = solve(solver, satellite) # provides actions up to the specified depth(?)
 a = action(policy, initial_state)
 println(a)
 # trajectory = simulate(p=policy,m=satellite,s0=initial_state) # gets the trjectory for the policy implemented with the MDP
 
 println("3. Generate Trajectory")
-for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=1)
+for (s,a,r) in stepthrough(satellite,policy,"s,a,r", max_steps=100)
+    # println("~~~~~~~~~~~~~~~~~~~")
+    # print("collision r : ")
+    # println(get_collision_R(s))
+    # print("action r : ")
+    # println(get_action_R(a))
+    # print("orbit r : ")
+    # println(get_orbit_R(s))
+    # print("total r : ")
+    # println(r)
+    # print("Action : ")
     println(a)
 end
 
