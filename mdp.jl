@@ -94,9 +94,9 @@ end
 
 println("4. Visualize Search Tree")
 
-a,info = action_info(planner,s)
+a,info = action_info(planner,initial_state)
 tree = info[:tree]
-inchrome(D3Tree(tree))
+inchrome(D3Tree(tree,init_expand=2))
 
 # plot_trajectory(trajectory)
 # look at the tree itself, make sure it makes sense 
