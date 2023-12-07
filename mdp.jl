@@ -103,15 +103,31 @@ end
 
 println("4. Store Data")
 
-
-
-
 data = Dict("sat"=>target_x, "intruder"=>intruder_x, "actions" => actions, "rewards" => rewards)
 json_string = JSON.json(data)
 
 open("data\\2d_1k.json","w") do f
   JSON.print(f, json_string)
 end
+
+println("5. Evaluate Policies")
+solver1 = MCTSSolver(n_iterations = 50000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
+policy1 = solve(solver1, satellite) 
+u1 = evaluate(satellite,policy1)
+value1 = u1(initial_state)
+println("Value 1: $value1")
+
+solver2 = MCTSSolver(n_iterations = 50000, depth = 20, exploration_constant = 5.0, enable_tree_vis=true)
+policy2 = solve(solver2, satellite)
+u2 = evaluate(satellite,policy2)
+value2 = u2(initial_state)
+println("Value 2: $value2")
+
+solver3 = MCTSSolver(n_iterations = 50000, depth = 10, exploration_constant = 10.0, enable_tree_vis=true)
+policy3 = solve(solver3, satellite)
+u3 = evaluate(satellite,policy3)
+value3 = u3(initial_state)
+println("Value 3: $value3")
 
 # a,info = action_info(policy,initial_state)
 # tree = info[:tree]
