@@ -48,7 +48,7 @@ end
 
 
 intruder_list = []
-for impact_time in [500,1000,5000,10000]
+for impact_time in [1000]
     push!(intruder_list,create_impact_sat(impact_time,initial_sat_state))
 end
 initial_state = MDPState(initial_sat_state,intruder_list) # Creates the initial state for our MDP
@@ -80,7 +80,7 @@ satellite = QuickMDP(
 
 # Initialize and run solver
 println("1. Creating Solver")
-solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
+solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 20.0, enable_tree_vis=true)
 println("2. Creating Policy")
 policy = solve(solver, satellite) # provides actions up to the specified depth(?)
 #criteria = evaluate(satellite, policy) # evaluates the given policy
@@ -93,7 +93,7 @@ println("3. Generate Trajectory")
 states = []
 rewards = []
 actions = []
-for (s,a,r) in ProgressBar(stepthrough(satellite,policy,"s,a,r", max_steps=150))
+for (s,a,r) in ProgressBar(stepthrough(satellite,policy,"s,a,r", max_steps=100))
     append!(states,[s])
 	append!(actions,[a])
 	append!(rewards,[r])
@@ -117,7 +117,7 @@ println("4. Store Data")
 data = Dict("sat"=>target_x, "intruder"=>intruder_x, "actions" => actions, "rewards" => rewards)
 json_string = JSON.json(data)
 
-open("data\\3d_5s1k5k10k.json","w") do f
+open("data\\2d_1k_1ki_20e.json","w") do f
   JSON.print(f, json_string)
 end
 
