@@ -24,8 +24,8 @@ data["intruder"]
 
 # ╔═╡ 0fe2f2c6-ddb1-4a39-af6c-9a2f6f5b8c53
 begin
-plot([sat[i][1] for i in range(1,length(sat))],[sat[i][2] for i in range(1,length(sat))])
-plot!([intruder[i][1] for i in range(1,length(intruder))],[intruder[i][2] for i in range(1,length(intruder))])
+	plot([data["sat"][i][1] for i in range(1,length(data["sat"]))],[data["sat"][i][2] for i in range(1,length(data["sat"]))])
+	plot!([data["intruder"][i][1] for i in range(1,length(data["intruder"]))],[data["intruder"][i][2] for i in range(1,length(data["intruder"]))])
 end
 
 # ╔═╡ a401b457-005f-41f4-97d3-b6b7b7aed31f

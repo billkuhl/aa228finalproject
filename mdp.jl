@@ -56,7 +56,7 @@ initial_state = MDPState(initial_sat_state,intruder_list) # Creates the initial 
 println("0. Initialize MDP")
 satellite = QuickMDP(
     gen = function(s,a, rng)
-        
+      
         sp = next_state(s,a) # propogates to next state 
         if sp == "InvOrbit"
             sp = s
@@ -80,7 +80,7 @@ satellite = QuickMDP(
 
 # Initialize and run solver
 println("1. Creating Solver")
-solver = MCTSSolver(n_iterations = 10000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
+solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
 println("2. Creating Policy")
 policy = solve(solver, satellite) # provides actions up to the specified depth(?)
 #criteria = evaluate(satellite, policy) # evaluates the given policy
@@ -117,7 +117,7 @@ println("4. Store Data")
 data = Dict("sat"=>target_x, "intruder"=>intruder_x, "actions" => actions, "rewards" => rewards)
 json_string = JSON.json(data)
 
-open("data\\2d_1k_10ki.json","w") do f
+open("data\\2d_1k_5ki.json","w") do f
   JSON.print(f, json_string)
 end
 
