@@ -53,12 +53,8 @@ xlabel("time")
 ylabel("distance (m)")
 figure
 plot( [0:length(ndist1000)-1]*100,min([ndist500,ndist1000,ndist5000,ndist10000],[],2))
-hold on
-plot( [0:length(ndist1000)-1]*100,min([dist500,dist1000,dist5000,dist10000],[],2))
-legend(["No Control","MCTS Control"])
-title("Method Comparison: Dist to Nearest Satellite")
-xlabel("time")
-ylabel("distance (m)")
+figure
+plot( [0:length(ndist1000)-1]*100,min([ndist500,ndist1000,ndist5000,ndist10000],[],2))
 
 
 
