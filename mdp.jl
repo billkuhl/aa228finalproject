@@ -24,7 +24,7 @@ initial_kep_pos = KeplerianElements(
                                     date_to_jd(2023,01,01), # Epoch
                                     7190.982e3, # Semi-Major Axis
                                     0, # eccentricity
-                                    45 |> deg2rad, # Inclination
+                                    0 |> deg2rad, # Inclination
                                     0    |> deg2rad, # Right Angle of Ascending Node
                                     0     |> deg2rad, # Arg. of Perigree
                                     0     |> deg2rad # True Anomaly
@@ -39,7 +39,7 @@ Random.seed!(123)
 function create_impact_sat(to, init)
     x_5k,v_5k = Propagators.propagate!(gen_orbp(init),to) 
     
-    intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,500]))) # noise related to the intruder position
+    intruder_v_noise = rand(MvNormal([0,0,0],Diagonal([500,500,0]))) # noise related to the intruder position
     intruder_collide_state = SatState(x_5k,v_5k+intruder_v_noise) 
     # intruder_initial_state = prop_state(intruder_collide_state,-10000) # creating a SatState structure with the noise for intruder
     intruder_initial_state = prop_state(intruder_collide_state,-to)
@@ -56,7 +56,7 @@ initial_state = MDPState(initial_sat_state,intruder_list) # Creates the initial 
 println("0. Initialize MDP")
 satellite = QuickMDP(
     gen = function(s,a, rng)
-
+        
         sp = next_state(s,a) # propogates to next state 
         if sp == "InvOrbit"
             sp = s
@@ -80,7 +80,7 @@ satellite = QuickMDP(
 
 # Initialize and run solver
 println("1. Creating Solver")
-solver = MCTSSolver(n_iterations = 5000, depth = 10, exploration_constant = 20.0, enable_tree_vis=true)
+solver = MCTSSolver(n_iterations = 10000, depth = 10, exploration_constant = 5.0, enable_tree_vis=true)
 println("2. Creating Policy")
 policy = solve(solver, satellite) # provides actions up to the specified depth(?)
 #criteria = evaluate(satellite, policy) # evaluates the given policy
@@ -117,7 +117,7 @@ println("4. Store Data")
 data = Dict("sat"=>target_x, "intruder"=>intruder_x, "actions" => actions, "rewards" => rewards)
 json_string = JSON.json(data)
 
-open("data\\2d_1k_1ki_20e.json","w") do f
+open("data\\2d_1k_10ki.json","w") do f
   JSON.print(f, json_string)
 end
 
